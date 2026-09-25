@@ -1,0 +1,161 @@
+@page "/usuarios"
+@inject IAuthService AuthService
+@inject IJSRuntime JS
+
+<PageTitle>Usuarios - PuntoAba</PageTitle>
+
+<div class="page-header">
+    <h1 class="page-title">👤 Usuarios del Sistema</h1>
+    <button class="btn btn-primary" @onclick="() => MostrarModal(null)">➕ Nuevo Usuario</button>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Nombre Completo</th>
+                        <th>Email</th>
+                        <th>Rol</th>
+                        <th>Último Acceso</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var usuario in usuarios)
+                    {
+                        <tr>
+                            <td><strong>@usuario.NombreUsuario</strong></td>
+                            <td>@usuario.NombreCompleto</td>
+                            <td>@usuario.Email</td>
+                            <td>
+                                <span class="badge @(usuario.Rol == "Admin" ? "bg-danger" : usuario.Rol == "Supervisor" ? "bg-warning" : "bg-info")">
+                                    @usuario.Rol
+                                </span>
+                            </td>
+                            <td>@(usuario.UltimoAcceso?.ToString("dd/MM/yyyy HH:mm") ?? "Nunca")</td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-outline-primary" @onclick="() => MostrarModal(usuario)">✏️</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@if (mostrarModal)
+{
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(usuarioEditar.NombreUsuario != null ? "Editar" : "Nuevo") Usuario</h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre de Usuario *</label>
+                        <input type="text" class="form-control" @bind="usuarioEditar.NombreUsuario" disabled="@(usuarioEditar.NombreUsuario != null)" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nombre Completo *</label>
+                        <input type="text" class="form-control" @bind="usuarioEditar.NombreCompleto" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email *</label>
+                        <input type="email" class="form-control" @bind="usuarioEditar.Email" />
+                    </div>
+                    @if (usuarioEditar.NombreUsuario == null)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Contraseña *</label>
+                            <input type="password" class="form-control" @bind="passwordNueva" />
+                        </div>
+                    }
+                    <div class="mb-3">
+                        <label class="form-label">Rol *</label>
+                        <select class="form-select" @bind="usuarioEditar.Rol">
+                            <option value="Cajero">Cajero</option>
+                            <option value="Supervisor">Supervisor</option>
+                            <option value="Admin">Administrador</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CerrarModal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="Guardar">💾 Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop show"></div>
+}
+
+@code {
+    private List<UsuarioDto> usuarios = new();
+    private bool mostrarModal = false;
+    private CrearUsuarioDto usuarioEditar = new();
+    private string passwordNueva = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarUsuarios();
+    }
+
+    private async Task CargarUsuarios()
+    {
+        usuarios = (await AuthService.ObtenerTodosUsuariosAsync()).ToList();
+    }
+
+    private void MostrarModal(UsuarioDto? usuario)
+    {
+        if (usuario == null)
+        {
+            usuarioEditar = new CrearUsuarioDto { Rol = "Cajero" };
+            passwordNueva = "";
+        }
+        else
+        {
+            usuarioEditar = new CrearUsuarioDto
+            {
+                NombreUsuario = usuario.NombreUsuario,
+                NombreCompleto = usuario.NombreCompleto,
+                Email = usuario.Email,
+                Rol = usuario.Rol,
+                Telefono = usuario.Telefono
+            };
+        }
+        mostrarModal = true;
+    }
+
+    private void CerrarModal()
+    {
+        mostrarModal = false;
+    }
+
+    private async Task Guardar()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(usuarioEditar.NombreUsuario))
+            {
+                await JS.InvokeVoidAsync("alert", "Complete todos los campos requeridos");
+                return;
+            }
+
+            usuarioEditar.Password = passwordNueva;
+            await AuthService.CrearUsuarioAsync(usuarioEditar);
+            await CargarUsuarios();
+            CerrarModal();
+            await JS.InvokeVoidAsync("alert", "Usuario guardado exitosamente");
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+    }
+}

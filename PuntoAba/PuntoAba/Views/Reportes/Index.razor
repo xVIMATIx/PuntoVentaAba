@@ -1,0 +1,103 @@
+@page "/reportes"
+@inject IVentaService VentaService
+
+<PageTitle>Reportes - PuntoAba</PageTitle>
+
+<h1 class="page-title">📊 Reportes</h1>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <label class="form-label">Fecha Inicio</label>
+        <input type="date" class="form-control" @bind="fechaInicio" />
+    </div>
+    <div class="col-md-6">
+        <label class="form-label">Fecha Fin</label>
+        <input type="date" class="form-control" @bind="fechaFin" />
+    </div>
+</div>
+
+<button class="btn btn-primary mb-4" @onclick="GenerarReporte">📈 Generar Reporte</button>
+
+@if (reporte != null)
+{
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card stat-card stat-primary">
+                <div class="card-body text-center">
+                    <h6>Total Ventas</h6>
+                    <h3>$@reporte.TotalVentas.ToString("N2")</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card stat-success">
+                <div class="card-body text-center">
+                    <h6>Cantidad Ventas</h6>
+                    <h3>@reporte.CantidadVentas</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card stat-info">
+                <div class="card-body text-center">
+                    <h6>Promedio</h6>
+                    <h3>$@reporte.PromedioVenta.ToString("N2")</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card stat-card">
+                <div class="card-body text-center">
+                    <h6>Periodo</h6>
+                    <p class="mb-0">@reporte.FechaInicio.ToString("dd/MM/yyyy")</p>
+                    <small>al</small>
+                    <p>@reporte.FechaFin.ToString("dd/MM/yyyy")</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5>Detalle de Ventas</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Número</th>
+                            <th>Cliente</th>
+                            <th class="text-end">Total</th>
+                            <th>Método</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var venta in reporte.Ventas)
+                        {
+                            <tr>
+                                <td>@venta.FechaVenta.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>@venta.NumeroVenta</td>
+                                <td>@venta.ClienteNombre</td>
+                                <td class="text-end">$@venta.Total.ToString("N2")</td>
+                                <td><span class="badge bg-info">@venta.MetodoPago</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private DateTime fechaInicio = DateTime.Today.AddMonths(-1);
+    private DateTime fechaFin = DateTime.Today;
+    private ReporteVentasDto? reporte;
+
+    private async Task GenerarReporte()
+    {
+        reporte = await VentaService.ObtenerReporteAsync(fechaInicio, fechaFin);
+    }
+}

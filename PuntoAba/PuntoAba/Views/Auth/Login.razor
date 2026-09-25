@@ -1,0 +1,104 @@
+@page "/"
+@page "/login"
+@layout BlankLayout
+@inject SesionUsuarioService SesionUsuario
+@inject NavigationManager Navigation
+
+<PageTitle>Iniciar Sesión - PuntoAba</PageTitle>
+
+<div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #f5f7fb; padding: 1rem;">
+    <div class="card shadow-sm" style="width: 100%; max-width: 420px;">
+        <div class="card-body p-4">
+            <h4 class="mb-3 text-center">🔐 Iniciar sesión</h4>
+
+            @if (verificandoSesion)
+            {
+                <div class="text-center py-4 text-muted">Validando sesión...</div>
+            }
+            else
+            {
+                @if (!string.IsNullOrWhiteSpace(mensajeError))
+                {
+                    <div class="alert alert-danger">@mensajeError</div>
+                }
+
+                <EditForm Model="@login" OnValidSubmit="@IniciarSesion">
+                    <div class="mb-3">
+                        <label class="form-label">Usuario</label>
+                        <InputText class="form-control" @bind-Value="login.NombreUsuario" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Contraseña</label>
+                        <InputText class="form-control" type="password" @bind-Value="login.Password" />
+                    </div>
+
+                    <button class="btn btn-primary w-100" disabled="@autenticando">
+                        @(autenticando ? "Ingresando..." : "Ingresar")
+                    </button>
+                </EditForm>
+
+                <div class="mt-3 small text-muted text-center">
+                    Desarrollo: usuario <strong>admin</strong> / contraseña <strong>Admin123</strong>.
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private readonly LoginDto login = new();
+    private bool autenticando;
+    private bool verificandoSesion = true;
+    private string? mensajeError;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await SesionUsuario.CargarSesionGuardadaAsync();
+        if (SesionUsuario.EstaAutenticado)
+        {
+            Navigation.NavigateTo("/dashboard");
+            return;
+        }
+
+        verificandoSesion = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task IniciarSesion()
+    {
+        mensajeError = null;
+
+        if (string.IsNullOrWhiteSpace(login.NombreUsuario) || string.IsNullOrWhiteSpace(login.Password))
+        {
+            mensajeError = "Debes capturar usuario y contraseña.";
+            return;
+        }
+
+        autenticando = true;
+        try
+        {
+            var (exitoso, mensaje) = await SesionUsuario.IniciarSesionAsync(login);
+            if (!exitoso)
+            {
+                mensajeError = mensaje;
+                return;
+            }
+
+            Navigation.NavigateTo("/dashboard");
+        }
+        catch (HttpRequestException ex)
+        {
+            mensajeError = $"No se pudo conectar al servidor de autenticación: {ex.Message}";
+        }
+        finally
+        {
+            autenticando = false;
+        }
+    }
+}

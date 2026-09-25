@@ -1,0 +1,179 @@
+@page "/ventas"
+@inject IVentaService VentaService
+@inject NavigationManager Navigation
+
+<PageTitle>Ventas - PuntoAba</PageTitle>
+
+<div class="page-header">
+    <h1 class="page-title">💰 Historial de Ventas</h1>
+    <a href="/ventas/nuevo" class="btn btn-primary">➕ Nueva Venta</a>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-4">
+        <label class="form-label">Fecha Inicio</label>
+        <input type="date" class="form-control" @bind="fechaInicio" @bind:after="CargarVentas" />
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">Fecha Fin</label>
+        <input type="date" class="form-control" @bind="fechaFin" @bind:after="CargarVentas" />
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">Buscar</label>
+        <input type="text" class="form-control" placeholder="Número de venta..." @bind="filtro" @bind:event="oninput" @onkeyup="Filtrar" />
+    </div>
+</div>
+
+@if (loading)
+{
+    <div class="loading-spinner">
+        <div class="spinner-border" role="status"></div>
+    </div>
+}
+else
+{
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Número</th>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                            <th class="text-end">Total</th>
+                            <th>Método Pago</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var venta in ventasFiltradas)
+                        {
+                            <tr>
+                                <td><strong>@venta.NumeroVenta</strong></td>
+                                <td>@venta.FechaVenta.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>@venta.ClienteNombre</td>
+                                <td class="text-end"><strong>$@venta.Total.ToString("N2")</strong></td>
+                                <td><span class="badge bg-info">@venta.MetodoPago</span></td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => VerDetalle(venta)">👁️ Ver</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="alert alert-info mt-3">
+                <strong>Total del periodo:</strong> $@ventasFiltradas.Sum(v => v.Total).ToString("N2") 
+                <span class="ms-3">|</span>
+                <strong class="ms-3">Ventas:</strong> @ventasFiltradas.Count
+            </div>
+        </div>
+    </div>
+}
+
+@if (ventaDetalle != null)
+{
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Detalle de Venta: @ventaDetalle.NumeroVenta</h5>
+                    <button type="button" class="btn-close" @onclick="() => ventaDetalle = null"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p><strong>Fecha:</strong> @ventaDetalle.FechaVenta.ToString("dd/MM/yyyy HH:mm")</p>
+                            <p><strong>Cliente:</strong> @ventaDetalle.ClienteNombre</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Método de Pago:</strong> @ventaDetalle.MetodoPago</p>
+                            <p><strong>Vendedor:</strong> @ventaDetalle.UsuarioNombre</p>
+                        </div>
+                    </div>
+
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th class="text-center">Cantidad</th>
+                                <th class="text-end">Precio</th>
+                                <th class="text-end">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var detalle in ventaDetalle.Detalles)
+                            {
+                                <tr>
+                                    <td>@detalle.ProductoNombre</td>
+                                    <td class="text-center">@(detalle.EsPorPeso ? detalle.Cantidad.ToString("N3") : detalle.Cantidad.ToString("N0"))</td>
+                                    <td class="text-end">$@detalle.PrecioUnitario.ToString("N2")</td>
+                                    <td class="text-end">$@detalle.Subtotal.ToString("N2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    <div class="text-end">
+                        <p><strong>Subtotal:</strong> $@ventaDetalle.Subtotal.ToString("N2")</p>
+                        <p><strong>Descuento:</strong> -$@ventaDetalle.Descuento.ToString("N2")</p>
+                        <p><strong>Impuesto:</strong> $@ventaDetalle.Impuesto.ToString("N2")</p>
+                        <h4><strong>TOTAL:</strong> $@ventaDetalle.Total.ToString("N2")</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop show"></div>
+}
+
+@code {
+    private List<VentaDto> ventas = new();
+    private List<VentaDto> ventasFiltradas = new();
+    private VentaDto? ventaDetalle;
+    private bool loading = true;
+    private DateTime fechaInicio = DateTime.Today.AddDays(-7);
+    private DateTime fechaFin = DateTime.Today;
+    private string filtro = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarVentas();
+    }
+
+    private async Task CargarVentas()
+    {
+        loading = true;
+        try
+        {
+            ventas = (await VentaService.ObtenerTodas(fechaInicio, fechaFin)).ToList();
+            ventasFiltradas = ventas;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void Filtrar()
+    {
+        if (string.IsNullOrWhiteSpace(filtro))
+        {
+            ventasFiltradas = ventas;
+        }
+        else
+        {
+            ventasFiltradas = ventas.Where(v =>
+                v.NumeroVenta.Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                (v.ClienteNombre != null && v.ClienteNombre.Contains(filtro, StringComparison.OrdinalIgnoreCase))
+            ).ToList();
+        }
+    }
+
+    private async Task VerDetalle(VentaDto venta)
+    {
+        ventaDetalle = await VentaService.ObtenerPorIdAsync(venta.Id);
+    }
+}

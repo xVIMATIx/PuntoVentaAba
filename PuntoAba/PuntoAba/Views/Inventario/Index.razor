@@ -1,0 +1,76 @@
+@page "/inventario"
+@inject IProductoService ProductoService
+
+<PageTitle>Inventario - PuntoAba</PageTitle>
+
+<h1 class="page-title">📋 Control de Inventario</h1>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h5>⚠️ Productos con Stock Bajo</h5>
+            </div>
+            <div class="card-body">
+                @if (productosStockBajo.Any())
+                {
+                    <div class="list-group">
+                        @foreach (var producto in productosStockBajo)
+                        {
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <strong>@producto.Codigo</strong> - @producto.Nombre
+                                        <br />
+                                        <small class="text-muted">@producto.CategoriaNombre</small>
+                                    </div>
+                                    <div>
+                                        <span class="badge bg-danger">Stock: @(producto.EsPorPeso ? producto.Stock.ToString("N3") : producto.Stock.ToString("N0"))</span>
+                                        <small class="text-muted d-block">Mínimo: @producto.StockMinimo</small>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="text-center text-muted">✅ No hay productos con stock bajo</p>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5>📊 Resumen de Inventario</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <strong>Total de Productos:</strong> @productos.Count
+                </div>
+                <div class="mb-3">
+                    <strong>Productos Activos:</strong> @productos.Count(p => p.Activo)
+                </div>
+                <div class="mb-3">
+                    <strong>Con Stock Bajo:</strong> @productosStockBajo.Count
+                </div>
+                <div class="mb-3">
+                    <strong>Sin Stock:</strong> @productos.Count(p => p.Stock == 0)
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<ProductoDto> productos = new();
+    private List<ProductoDto> productosStockBajo = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        productos = (await ProductoService.ObtenerTodosAsync()).ToList();
+        productosStockBajo = (await ProductoService.ObtenerStockBajoAsync()).ToList();
+    }
+}

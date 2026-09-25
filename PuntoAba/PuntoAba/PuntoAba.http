@@ -1,0 +1,6 @@
+@PuntoAba_HostAddress = http://localhost:5138
+
+GET {{PuntoAba_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

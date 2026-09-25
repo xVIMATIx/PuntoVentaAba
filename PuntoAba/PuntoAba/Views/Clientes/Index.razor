@@ -1,0 +1,182 @@
+@page "/clientes"
+@using Microsoft.EntityFrameworkCore
+@inject PuntoAba.Data.PuntoAbaDbContext DbContext
+@inject IJSRuntime JS
+
+<PageTitle>Clientes - PuntoAba</PageTitle>
+
+<div class="page-header">
+    <h1 class="page-title">👥 Clientes</h1>
+    <button class="btn btn-primary" @onclick="() => MostrarModal(null)">➕ Nuevo Cliente</button>
+</div>
+
+<div class="mb-3">
+    <input type="text" class="form-control" placeholder="🔍 Buscar cliente..." @bind="filtro" @bind:event="oninput" @onkeyup="Buscar" />
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Teléfono</th>
+                        <th>Email</th>
+                        <th>Documento</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var cliente in clientesFiltrados)
+                    {
+                        <tr>
+                            <td><strong>@cliente.Nombre @cliente.Apellido</strong></td>
+                            <td>@cliente.Telefono</td>
+                            <td>@cliente.Email</td>
+                            <td>@cliente.DocumentoIdentidad</td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-primary" @onclick="() => MostrarModal(cliente)">✏️</button>
+                                    <button class="btn btn-outline-danger" @onclick="() => Eliminar(cliente.Id)">🗑️</button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@if (mostrarModal)
+{
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(clienteEditar.Id > 0 ? "Editar" : "Nuevo") Cliente</h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Nombre *</label>
+                            <input type="text" class="form-control" @bind="clienteEditar.Nombre" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Apellido</label>
+                            <input type="text" class="form-control" @bind="clienteEditar.Apellido" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Teléfono</label>
+                            <input type="tel" class="form-control" @bind="clienteEditar.Telefono" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" @bind="clienteEditar.Email" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Documento</label>
+                            <input type="text" class="form-control" @bind="clienteEditar.DocumentoIdentidad" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Dirección</label>
+                            <textarea class="form-control" rows="2" @bind="clienteEditar.Direccion"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CerrarModal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" @onclick="Guardar">💾 Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop show"></div>
+}
+
+@code {
+    private List<Models.Cliente> clientes = new();
+    private List<Models.Cliente> clientesFiltrados = new();
+    private bool mostrarModal = false;
+    private Models.Cliente clienteEditar = new();
+    private string filtro = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarClientes();
+    }
+
+    private async Task CargarClientes()
+    {
+        clientes = await DbContext.Clientes.Where(c => c.Activo).ToListAsync();
+        clientesFiltrados = clientes;
+    }
+
+    private void Buscar()
+    {
+        if (string.IsNullOrWhiteSpace(filtro))
+        {
+            clientesFiltrados = clientes;
+        }
+        else
+        {
+            clientesFiltrados = clientes.Where(c =>
+                c.Nombre.Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                (c.Apellido != null && c.Apellido.Contains(filtro, StringComparison.OrdinalIgnoreCase)) ||
+                (c.DocumentoIdentidad != null && c.DocumentoIdentidad.Contains(filtro, StringComparison.OrdinalIgnoreCase))
+            ).ToList();
+        }
+    }
+
+    private void MostrarModal(Models.Cliente? cliente)
+    {
+        clienteEditar = cliente ?? new Models.Cliente();
+        mostrarModal = true;
+    }
+
+    private void CerrarModal()
+    {
+        mostrarModal = false;
+    }
+
+    private async Task Guardar()
+    {
+        try
+        {
+            if (clienteEditar.Id == 0)
+            {
+                clienteEditar.FechaCreacion = DateTime.UtcNow;
+                DbContext.Clientes.Add(clienteEditar);
+            }
+            else
+            {
+                clienteEditar.FechaActualizacion = DateTime.UtcNow;
+                DbContext.Clientes.Update(clienteEditar);
+            }
+            await DbContext.SaveChangesAsync();
+            await CargarClientes();
+            CerrarModal();
+            await JS.InvokeVoidAsync("alert", "Cliente guardado exitosamente");
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+    }
+
+    private async Task Eliminar(int id)
+    {
+        if (await JS.InvokeAsync<bool>("confirm", "¿Está seguro de eliminar este cliente?"))
+        {
+            var cliente = await DbContext.Clientes.FindAsync(id);
+            if (cliente != null)
+            {
+                cliente.Activo = false;
+                await DbContext.SaveChangesAsync();
+                await CargarClientes();
+            }
+        }
+    }
+}

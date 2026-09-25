@@ -1,0 +1,578 @@
+@page "/productos"
+@using Microsoft.AspNetCore.Components.Forms
+@inject IProductoService ProductoService
+@inject IWebHostEnvironment Environment
+@inject IJSRuntime JS
+
+<PageTitle>Productos - PuntoAba</PageTitle>
+
+<div class="productos-page">
+    <div class="page-header">
+        <h1 class="page-title">📦 Productos</h1>
+        <button class="btn btn-primary" @onclick="() => MostrarModal(null)">
+            ➕ Nuevo Producto
+        </button>
+    </div>
+
+    <div class="filters-section">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <input type="text" class="form-control" placeholder="🔍 Buscar producto..." @bind="filtro" @bind:event="oninput" />
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" @bind="categoriaFiltro" @bind:after="Filtrar">
+                    <option value="0">Todas las categorías</option>
+                    @foreach (var cat in categorias)
+                    {
+                        <option value="@cat.Id">@cat.Nombre</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" @bind="stockFiltro" @bind:after="Filtrar">
+                    <option value="0">Todos</option>
+                    <option value="1">Stock bajo</option>
+                    <option value="2">Sin stock</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    @if (loading)
+    {
+        <div class="loading-spinner">
+            <div class="spinner-border" role="status"></div>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Nombre</th>
+                                <th>Categoría</th>
+                                <th>Tipo</th>
+                                <th class="text-end">P. Compra</th>
+                                <th class="text-end">P. Venta</th>
+                                <th class="text-center">Stock</th>
+                                <th class="text-center">Estado</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var producto in productosFiltrados)
+                            {
+                                <tr class="@(producto.Stock <= producto.StockMinimo ? "table-warning" : "")">
+                                    <td><strong>@producto.Codigo</strong></td>
+                                    <td>@producto.Nombre</td>
+                                    <td>@producto.CategoriaNombre</td>
+                                    <td>
+                                        <span class="badge @(producto.EsPorPeso ? "bg-info" : "bg-secondary")">
+                                            @(producto.EsPorPeso ? $"Por {producto.UnidadMedida ?? "peso"}" : "Por unidad")
+                                        </span>
+                                    </td>
+                                    <td class="text-end">$@producto.PrecioCompra.ToString("N2")</td>
+                                    <td class="text-end"><strong>$@producto.PrecioVenta.ToString("N2")</strong></td>
+                                    <td class="text-center">
+                                        <span class="badge @(producto.Stock <= producto.StockMinimo ? "bg-danger" : producto.Stock < (producto.StockMinimo * 2) ? "bg-warning" : "bg-success")">
+                                            @(producto.EsPorPeso ? producto.Stock.ToString("N3") : producto.Stock.ToString("N0"))
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge @(producto.Activo ? "bg-success" : "bg-secondary")">
+                                            @(producto.Activo ? "Activo" : "Inactivo")
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-primary" @onclick="() => MostrarModal(producto)" title="Editar">
+                                                ✏️
+                                            </button>
+                                            <button class="btn btn-outline-info" @onclick="() => AjustarStock(producto)" title="Ajustar Stock">
+                                                📊
+                                            </button>
+                                            <button class="btn btn-outline-danger" @onclick="() => Eliminar(producto.Id)" title="Eliminar">
+                                                🗑️
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-3">
+            <p class="text-muted">Total: @productosFiltrados.Count productos</p>
+        </div>
+    }
+</div>
+
+@if (mostrarModal)
+{
+    <div class="modal show d-block" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(esEdicion ? "✏️ Editar Producto" : "➕ Nuevo Producto")</h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="@productoEditar" OnValidSubmit="Guardar">
+                        <!-- Validación solo al submit -->
+
+                        <div class="row g-3">
+                            <div class="col-md-4 text-center">
+                                <div class="image-preview-box">
+                                    @if (!string.IsNullOrEmpty(imagenPreview))
+                                    {
+                                        <img src="@imagenPreview" alt="Producto" class="img-preview" />
+                                    }
+                                    else
+                                    {
+                                        <div class="no-image-preview">
+                                            <span>📦</span>
+                                            <p>Sin imagen</p>
+                                        </div>
+                                    }
+                                </div>
+                                <div class="mt-2">
+                                    <InputFile OnChange="CargarImagen" class="form-control form-control-sm" accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" />
+                                    <small class="text-muted">JPG, PNG, GIF o WEBP (máx. 5MB)</small>
+                                </div>
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label">Código *</label>
+                                <InputText class="form-control" @bind-Value="productoEditar!.Codigo" />
+                                <ValidationMessage For="@(() => productoEditar.Codigo)" />
+
+                                <label class="form-label mt-2">Categoría *</label>
+                                <InputSelect class="form-select" @bind-Value="productoEditar.CategoriaId">
+                                    <option value="0">Seleccione...</option>
+                                    @foreach (var cat in categorias)
+                                    {
+                                        <option value="@cat.Id">@cat.Nombre</option>
+                                    }
+                                </InputSelect>
+                                <ValidationMessage For="@(() => productoEditar.CategoriaId)" />
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mt-1">
+                            <div class="col-12">
+                                <label class="form-label">Nombre *</label>
+                                <InputText class="form-control" @bind-Value="productoEditar.Nombre" />
+                                <ValidationMessage For="@(() => productoEditar.Nombre)" />
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Descripción</label>
+                                <InputTextArea class="form-control" rows="2" @bind-Value="productoEditar.Descripcion" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Precio Compra *</label>
+                                <InputNumber class="form-control" @bind-Value="productoEditar.PrecioCompra" />
+                                <ValidationMessage For="@(() => productoEditar.PrecioCompra)" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Precio Venta *</label>
+                                <InputNumber class="form-control" @bind-Value="productoEditar.PrecioVenta" />
+                                <ValidationMessage For="@(() => productoEditar.PrecioVenta)" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Stock *</label>
+                                <InputNumber class="form-control" @bind-Value="productoEditar.Stock" />
+                                <ValidationMessage For="@(() => productoEditar.Stock)" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Stock Mínimo</label>
+                                <InputNumber class="form-control" @bind-Value="productoEditar.StockMinimo" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Unidad de Medida</label>
+                                <InputText class="form-control" @bind-Value="productoEditar.UnidadMedida" placeholder="Pieza, Kg, Lt..." />
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <div class="form-check form-switch">
+                                    <InputCheckbox class="form-check-input" @bind-Value="productoEditar.EsPorPeso" id="esPorPeso" />
+                                    <label class="form-check-label" for="esPorPeso">Se vende por peso</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-primary">💾 Guardar</button>
+                            <button type="button" class="btn btn-secondary" @onclick="CerrarModal">Cancelar</button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop show"></div>
+}
+
+<style>
+.image-preview-box {
+    border: 2px dashed #cbd5e1;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    min-height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8fafc;
+}
+
+.img-preview {
+    max-width: 100%;
+    max-height: 150px;
+    object-fit: contain;
+    border-radius: 0.35rem;
+}
+
+.no-image-preview {
+    text-align: center;
+    color: #94a3b8;
+}
+
+.no-image-preview span {
+    font-size: 2.5rem;
+    display: block;
+}
+
+.no-image-preview p {
+    margin: 0.5rem 0 0 0;
+}
+</style>
+
+@code {
+    private List<ProductoDto> productos = new();
+    private List<ProductoDto> productosFiltrados = new();
+    private List<CategoriaDto> categorias = new();
+    private bool loading = true;
+    private bool mostrarModal = false;
+    private CrearProductoDto productoEditar = new();
+    private bool esEdicion = false;
+    private int productoIdEditando = 0;
+    private string filtro = "";
+    private int categoriaFiltro = 0;
+    private int stockFiltro = 0;
+    private IBrowserFile? archivoImagen;
+    private string imagenPreview = "";
+    
+    // Debounce para búsqueda
+    private System.Threading.Timer? timerBusqueda;
+    private string ultimoFiltro = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    protected override void OnParametersSet()
+    {
+        // Debounce: Buscar 300ms después del último keystroke
+        if (filtro != ultimoFiltro)
+        {
+            ultimoFiltro = filtro;
+            timerBusqueda?.Dispose();
+            timerBusqueda = new System.Threading.Timer(_ =>
+            {
+                InvokeAsync(() =>
+                {
+                    Filtrar();
+                    StateHasChanged();
+                });
+            }, null, 300, System.Threading.Timeout.Infinite);
+        }
+    }
+
+    private async Task CargarImagen(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var archivo = e.File;
+            
+            if (archivo == null)
+            {
+                return;
+            }
+
+            // Validar tipo de archivo
+            var tiposPermitidos = new[] { "image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp" };
+            if (!tiposPermitidos.Contains(archivo.ContentType.ToLower()))
+            {
+                await JS.InvokeVoidAsync("alert", "Solo se permiten imágenes JPG, PNG, GIF o WEBP");
+                return;
+            }
+
+            // Validar tamaño (máx 5MB)
+            const long maxFileSize = 5242880; // 5MB
+            if (archivo.Size > maxFileSize)
+            {
+                await JS.InvokeVoidAsync("alert", "La imagen no debe superar 5MB");
+                return;
+            }
+
+            // Guardar referencia del archivo
+            archivoImagen = archivo;
+
+            // Crear preview usando un stream
+            using var stream = archivo.OpenReadStream(maxFileSize);
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+            var imageBytes = memoryStream.ToArray();
+            var base64 = Convert.ToBase64String(imageBytes);
+            imagenPreview = $"data:{archivo.ContentType};base64,{base64}";
+            
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Error al cargar la imagen: {ex.Message}");
+            archivoImagen = null;
+            imagenPreview = "";
+            StateHasChanged();
+        }
+    }
+
+    private async Task<string?> GuardarImagenFisicamente()
+    {
+        if (archivoImagen == null) 
+        {
+            return null;
+        }
+
+        try
+        {
+            // Validar que WebRootPath esté disponible
+            if (string.IsNullOrEmpty(Environment.WebRootPath))
+            {
+                throw new InvalidOperationException("WebRootPath no está configurado");
+            }
+
+            // Preparar nombres y rutas
+            var extension = Path.GetExtension(archivoImagen.Name).ToLowerInvariant();
+            if (string.IsNullOrEmpty(extension))
+            {
+                extension = ".jpg"; // extensión por defecto
+            }
+            
+            var nombreArchivo = $"{Guid.NewGuid()}{extension}";
+            var carpetaImagenes = Path.Combine(Environment.WebRootPath, "images", "productos");
+            
+            // Crear directorio si no existe
+            if (!Directory.Exists(carpetaImagenes))
+            {
+                Directory.CreateDirectory(carpetaImagenes);
+            }
+            
+            var rutaCompleta = Path.Combine(carpetaImagenes, nombreArchivo);
+
+            // Guardar archivo con buffer de 5MB
+            const long maxFileSize = 5242880;
+            await using var fileStream = new FileStream(rutaCompleta, FileMode.Create, FileAccess.Write, FileShare.None);
+            await using var imageStream = archivoImagen.OpenReadStream(maxFileSize);
+            await imageStream.CopyToAsync(fileStream);
+            await fileStream.FlushAsync();
+
+            // Retornar ruta relativa para usar en la web
+            return $"/images/productos/{nombreArchivo}";
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Error al guardar la imagen en el servidor: {ex.Message}");
+            return null;
+        }
+    }
+
+    private async Task CargarDatos()
+    {
+        loading = true;
+        try
+        {
+            productos = (await ProductoService.ObtenerTodosAsync()).ToList();
+            productosFiltrados = productos;
+            
+            // Cargar categorías (simular por ahora)
+            categorias = new List<CategoriaDto>
+            {
+                new() { Id = 1, Nombre = "Bebidas" },
+                new() { Id = 2, Nombre = "Abarrotes" },
+                new() { Id = 3, Nombre = "Lácteos" },
+                new() { Id = 4, Nombre = "Panadería" },
+                new() { Id = 5, Nombre = "Snacks" },
+                new() { Id = 6, Nombre = "Limpieza" }
+            };
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void Filtrar()
+    {
+        productosFiltrados = productos;
+
+        if (!string.IsNullOrWhiteSpace(filtro))
+        {
+            productosFiltrados = productosFiltrados.Where(p =>
+                p.Nombre.Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                p.Codigo.Contains(filtro, StringComparison.OrdinalIgnoreCase)
+            ).ToList();
+        }
+
+        if (categoriaFiltro > 0)
+        {
+            productosFiltrados = productosFiltrados.Where(p => p.CategoriaId == categoriaFiltro).ToList();
+        }
+
+        if (stockFiltro == 1)
+        {
+            productosFiltrados = productosFiltrados.Where(p => p.Stock <= p.StockMinimo && p.Stock > 0).ToList();
+        }
+        else if (stockFiltro == 2)
+        {
+            productosFiltrados = productosFiltrados.Where(p => p.Stock == 0).ToList();
+        }
+    }
+
+    private void MostrarModal(ProductoDto? producto)
+    {
+        archivoImagen = null;
+        imagenPreview = "";
+        
+        if (producto == null)
+        {
+            productoEditar = new CrearProductoDto { StockMinimo = 10, EsPorPeso = false };
+            esEdicion = false;
+            productoIdEditando = 0;
+        }
+        else
+        {
+            productoEditar = new CrearProductoDto
+            {
+                Codigo = producto.Codigo,
+                Nombre = producto.Nombre,
+                Descripcion = producto.Descripcion,
+                PrecioCompra = producto.PrecioCompra,
+                PrecioVenta = producto.PrecioVenta,
+                Stock = producto.Stock,
+                StockMinimo = producto.StockMinimo,
+                CategoriaId = producto.CategoriaId,
+                UnidadMedida = producto.UnidadMedida,
+                EsPorPeso = producto.EsPorPeso,
+                ImagenUrl = producto.ImagenUrl
+            };
+            imagenPreview = producto.ImagenUrl ?? "";
+            esEdicion = true;
+            productoIdEditando = producto.Id;
+        }
+        mostrarModal = true;
+    }
+
+    private void CerrarModal()
+    {
+        mostrarModal = false;
+    }
+
+    private async Task Guardar()
+    {
+        try
+        {
+            // Guardar imagen si se seleccionó una nueva
+            if (archivoImagen != null)
+            {
+                var rutaImagen = await GuardarImagenFisicamente();
+                if (!string.IsNullOrEmpty(rutaImagen))
+                {
+                    productoEditar.ImagenUrl = rutaImagen;
+                }
+                else
+                {
+                    // Si falló el guardado de imagen pero el usuario quiere continuar
+                    var continuar = await JS.InvokeAsync<bool>("confirm", "No se pudo guardar la imagen. ¿Desea continuar sin imagen?");
+                    if (!continuar)
+                    {
+                        return;
+                    }
+                }
+            }
+            
+            if (esEdicion)
+            {
+                await ProductoService.ActualizarAsync(productoIdEditando, new ActualizarProductoDto
+                {
+                    Nombre = productoEditar.Nombre,
+                    Descripcion = productoEditar.Descripcion,
+                    PrecioCompra = productoEditar.PrecioCompra,
+                    PrecioVenta = productoEditar.PrecioVenta,
+                    Stock = productoEditar.Stock,
+                    StockMinimo = productoEditar.StockMinimo,
+                    CategoriaId = productoEditar.CategoriaId,
+                    UnidadMedida = productoEditar.UnidadMedida,
+                    EsPorPeso = productoEditar.EsPorPeso,
+                    ImagenUrl = productoEditar.ImagenUrl
+                });
+            }
+            else
+            {
+                await ProductoService.CrearAsync(productoEditar);
+            }
+            
+            // Limpiar estado de imagen
+            archivoImagen = null;
+            imagenPreview = "";
+            
+            await CargarDatos();
+            CerrarModal();
+            await JS.InvokeVoidAsync("alert", "✅ Producto guardado exitosamente");
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"❌ Error al guardar el producto: {ex.Message}");
+        }
+    }
+
+    private async Task Eliminar(int id)
+    {
+        if (await JS.InvokeAsync<bool>("confirm", "¿Está seguro de eliminar este producto?"))
+        {
+            try
+            {
+                await ProductoService.EliminarAsync(id);
+                await CargarDatos();
+                await JS.InvokeVoidAsync("alert", "Producto eliminado exitosamente");
+            }
+            catch (Exception ex)
+            {
+                await JS.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task AjustarStock(ProductoDto producto)
+    {
+        var cantidad = await JS.InvokeAsync<string>("prompt", $"Ingrese la cantidad a ajustar para {producto.Nombre}:", "0");
+        if (!string.IsNullOrEmpty(cantidad) && decimal.TryParse(cantidad, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.CurrentCulture, out decimal valor))
+        {
+            try
+            {
+                await ProductoService.ActualizarStockAsync(producto.Id, valor);
+                await CargarDatos();
+                await JS.InvokeVoidAsync("alert", "Stock actualizado exitosamente");
+            }
+            catch (Exception ex)
+            {
+                await JS.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+            }
+        }
+    }
+}

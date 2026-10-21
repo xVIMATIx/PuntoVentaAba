@@ -1,0 +1,42 @@
+.inv-workspace .product-editor .modal-dialog { width:min(1040px,calc(100% - 24px)); max-width:1040px; }
+.product-editor .modal-dialog { display:flex; flex-direction:column; max-height:calc(100% - 24px); }
+.product-editor .modal-content { min-height:0; flex:1 1 auto; }
+.product-editor .modal-body { min-height:0; max-height:none; padding:16px; }
+.product-editor .modal-header p { margin:4px 0 0; color:#82909c; font-size:12px; }
+.product-fieldset { border:0; margin:0; padding:0; min-width:0; }
+.product-identity { display:grid; grid-template-columns:minmax(0,.9fr) minmax(0,1.3fr); gap:16px; padding-bottom:12px; }
+.product-main-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.product-block { min-width:0; border:1px solid #e0e8ef; border-radius:10px; padding:12px; background:#fafcfd; }
+.product-block h3 { margin:0 0 12px; font-size:13px; font-weight:650; color:#56748a; }
+.product-field { margin-bottom:14px; }
+.product-pair { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.product-pair>div,.product-identity>div { min-width:0; }
+.product-editor label { display:block; }
+.product-money { display:flex; align-items:center; position:relative; }
+.product-money>span { position:absolute; left:13px; color:#8da0af; font-size:16px; pointer-events:none; }
+.product-money ::deep input.form-control { padding-left:30px; font-size:19px; font-variant-numeric:tabular-nums; }
+.product-sale-mode { display:grid; grid-template-columns:1fr 1fr; padding:4px; border:1px solid #dbe5ed; border-radius:9px; background:#edf2f6; gap:4px; margin-bottom:10px; }
+.product-sale-mode button { min-height:46px; border:1px solid transparent; border-radius:6px; background:transparent; color:#81909e; font:600 13px 'Segoe UI',sans-serif; cursor:pointer; }
+.product-sale-mode button.is-active { background:#fff; color:#315f7c; border-color:#d3e0e9; box-shadow:0 1px 3px #29465c0a; }
+.product-unit { margin-bottom:10px; display:flex; align-items:center; gap:14px; }
+.product-unit label { flex:1; margin:0; }
+.product-unit ::deep input { width:130px; min-width:0; }
+.product-block>small { display:block; margin-top:10px; font-size:11px; color:#8b98a3; line-height:1.5; }
+.product-options-toggle { width:100%; display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:60px; margin-top:12px; padding:11px 15px; background:#fff; border:1px solid #e0e8ef; border-radius:9px; text-align:left; color:#5f7b90; cursor:pointer; }
+.product-options-toggle strong { font-size:12px; font-weight:600; display:block; }
+.product-options-toggle small { display:block; font-size:11px; color:#95a1ab; margin-top:3px; }
+.product-options-toggle ::deep .aba-icon { width:18px; height:18px; }
+.product-options { padding:18px 0 0; }
+.product-options[hidden] { display:none; }
+.product-options-grid { display:grid; grid-template-columns:minmax(0,1fr) 240px; gap:20px; }
+.product-options-grid .product-pair { margin-top:14px; }
+.product-image-preview { display:flex; align-items:center; gap:12px; padding:10px; min-height:64px; border:1px dashed #d6e1e9; border-radius:8px; margin-bottom:10px; color:#9aacbb; font-size:12px; }
+.product-image-preview img { width:54px; height:54px; object-fit:contain; border-radius:6px; }
+.product-image-preview ::deep .aba-icon { width:30px; height:30px; }
+.product-image-field ::deep input[type=file] { width:100%; padding:8px; font-size:11px; }
+.product-options small { display:block; margin-top:6px; font-size:11px; color:#8b9ca9; }
+.product-editor-footer { justify-content:space-between; gap:10px; }
+.product-editor-footer>div { display:flex; gap:10px; flex-wrap:wrap; }
+.product-saved { margin:0 0 14px; padding:11px 14px; background:#eff6f2; color:#648675; border:1px solid #d7e8df; border-radius:8px; font-size:12px; }
+.product-editor ::deep .validation-message { font-size:11px; margin-top:5px; display:block; }
+@media(max-width:650px) { .product-identity,.product-main-grid,.product-options-grid { grid-template-columns:1fr; } .product-editor-footer>div { flex:1; } .product-editor-footer ::deep button { min-width:0; } .product-editor-footer>div>button { flex:1; } }

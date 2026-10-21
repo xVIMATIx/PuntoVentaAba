@@ -1,284 +1,89 @@
 @page "/dashboard"
-@using System.Net.Http.Json
-@inject HttpClient Http
-@inject SesionUsuarioService SesionUsuario
-@inject NavigationManager Navigation
+@page "/inicio"
+@inject IDashboardService DashboardService
+@inject SesionUsuarioService Sesion
+@inject ILoggerFactory Logs
 
-<PageTitle>Dashboard - PuntoAba</PageTitle>
-
-<div class="dashboard">
-    <h1 class="page-title">📊 Dashboard</h1>
-
-    @if (loading)
+<PageTitle>Inicio · Abarrotes Agustín</PageTitle>
+<div class="aba-home">
+    <div class="aba-home-heading"><div><span class="aba-eyebrow">TU NEGOCIO, DE UN VISTAZO</span><p>Resumen y accesos a tus herramientas de trabajo.</p></div>
+        @if (Gestion) { <button type="button" class="aba-refresh" disabled="@cargando" @onclick="Cargar"><Icono Nombre="actualizar" /><span>Actualizar</span></button> }
+    </div>
+    @if (error != "") { <p class="alert alert-warning" role="alert">@error</p> }
+    @if (Gestion)
     {
-        <div class="loading-spinner">
-            <div class="spinner-border" role="status">
-                <span class="visually-hidden">Cargando...</span>
-            </div>
-        </div>
+        <section class="aba-summary" aria-label="Resumen del negocio" aria-busy="@cargando">
+            <article class="aba-summary-column"><h2><Icono Nombre="venta" />Ventas</h2>
+                @if (datos != null)
+                {
+                    <div class="aba-sale-stat"><span>Hoy</span><div><strong>@Moneda(datos.VentasHoy.Total)</strong><span class="aba-count">@datos.VentasHoy.Cantidad<small>ventas</small></span></div></div>
+                    <div class="aba-sale-stat"><span>Este mes</span><div><strong>@Moneda(datos.VentasMes.Total)</strong><span class="aba-count">@datos.VentasMes.Cantidad<small>ventas</small></span></div></div>
+                }
+                else { <p class="aba-empty">@(cargando ? "Cargando resumen…" : "Resumen no disponible")</p> }
+            </article>
+            <article class="aba-summary-column"><h2><Icono Nombre="caja" />Inventario</h2>
+                @if (datos != null)
+                {
+                    <a href="inventario?estado=agotados" class="aba-stock-stat"><span><strong>Agotados</strong><small>Sin existencias</small></span><b>@datos.Inventario.Agotados</b></a>
+                    <a href="inventario?estado=bajo" class="aba-stock-stat"><span><strong>Stock bajo</strong><small>En el mínimo o por debajo</small></span><b>@datos.Inventario.StockBajoSinAgotados</b></a>
+                    <div class="aba-summary-foot">@datos.Inventario.TotalProductos productos activos</div>
+                }
+                else { <p class="aba-empty">@(cargando ? "Cargando inventario…" : "Resumen no disponible")</p> }
+            </article>
+            <article class="aba-summary-column"><h2><Icono Nombre="historial" />Historial</h2>
+                <div class="aba-mini-caption">Últimas ventas</div>
+                <table class="aba-mini-table"><thead><tr><th>Hora</th><th>Folio</th><th>Importe</th></tr></thead><tbody>
+                    @foreach (var v in datos?.VentasRecientes ?? new())
+                    {
+                        <tr><td><time title="@v.Fecha.ToString("dd/MM/yyyy HH:mm")">@v.Fecha.ToString("HH:mm")</time></td><td><a href="@($"ventas?ventaId={v.Id}")">@v.Folio</a></td><td>@Moneda(v.Importe)</td></tr>
+                    }
+                </tbody></table>
+                @if (datos != null && datos.VentasRecientes.Count == 0) { <p class="aba-empty">Todavía no hay ventas registradas.</p> }
+            </article>
+            <article class="aba-summary-column"><h2><Icono Nombre="clientes" />Clientes</h2>
+                <div class="aba-mini-caption">Mayores compras del mes</div>
+                @if (datos?.ClientesFrecuentes.Count > 0)
+                {
+                    <ol class="aba-customer-ranking">@foreach (var c in datos.ClientesFrecuentes) { <li><a href="@($"clientes?buscar={Uri.EscapeDataString(c.Nombre)}")">@c.Nombre</a><strong>@Moneda(c.Importe)</strong></li> }</ol>
+                }
+                else { <p class="aba-empty">@(cargando ? "Cargando clientes…" : "Sin compras de clientes identificados este mes.")</p> }
+                <div class="aba-customer-total"><span>Clientes registrados</span><strong>@(datos?.Clientes.Registrados.ToString() ?? "—")</strong></div>
+            </article>
+        </section>
+        <p class="aba-asof">@(consultado.HasValue ? $"Actualizado: {consultado:dd/MM/yyyy HH:mm}" : "Consultando información…")</p>
     }
-    else if (estadisticas != null)
-    {
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <div class="text-muted">
-                Sesión: <strong>@SesionUsuario.UsuarioActual?.NombreCompleto</strong> (@SesionUsuario.UsuarioActual?.Rol)
-            </div>
-            <div class="d-flex gap-2">
-                <button class="btn btn-outline-secondary btn-sm" @onclick="RecargarEstadisticas">Actualizar</button>
-                <button class="btn btn-outline-danger btn-sm" @onclick="CerrarSesion">Cerrar sesión</button>
-            </div>
+    else { <p class="aba-cashier-notice">Elige una herramienta para comenzar. Los resúmenes del negocio están disponibles para administración.</p> }
+    <section class="aba-access-section" aria-labelledby="aba-access-title">
+        <div class="aba-section-heading"><h2 id="aba-access-title">Herramientas de trabajo</h2><span>Toca una pantalla para abrirla</span></div>
+        <div class="aba-access-grid">
+            @foreach (var grupo in grupos)
+            {
+                <div class="aba-access-column"><h3>@grupo</h3>
+                    @foreach (var acceso in MenuAplicacion.Pantallas.Where(p => p.Grupo == grupo && MenuAplicacion.PuedeAbrir(p.Ruta, Sesion.UsuarioActual?.Rol)))
+                    {
+                        <a class="aba-screen-button" href="@acceso.Ruta"><Icono Nombre="@acceso.Icono" /><span>@acceso.Titulo</span><span class="aba-access-arrow" aria-hidden="true">›</span></a>
+                    }
+                    @if (!MenuAplicacion.Pantallas.Any(p => p.Grupo == grupo && MenuAplicacion.PuedeAbrir(p.Ruta, Sesion.UsuarioActual?.Rol))) { <p class="aba-empty">Acceso restringido para este usuario.</p> }
+                </div>
+            }
         </div>
-
-        @if (!string.IsNullOrWhiteSpace(mensajeError))
-        {
-            <div class="alert alert-warning">@mensajeError</div>
-        }
-
-        <div class="stats-grid">
-            <div class="stat-card stat-primary">
-                <div class="stat-icon">💰</div>
-                <div class="stat-content">
-                    <h3>Ventas Hoy</h3>
-                    <div class="stat-value">$@estadisticas.VentasHoy.Total.ToString("N2")</div>
-                    <div class="stat-detail">@estadisticas.VentasHoy.Cantidad ventas</div>
-                </div>
-            </div>
-
-            <div class="stat-card stat-success">
-                <div class="stat-icon">📅</div>
-                <div class="stat-content">
-                    <h3>Ventas del Mes</h3>
-                    <div class="stat-value">$@estadisticas.VentasMes.Total.ToString("N2")</div>
-                    <div class="stat-detail">@estadisticas.VentasMes.Cantidad ventas</div>
-                </div>
-            </div>
-
-            <div class="stat-card stat-info">
-                <div class="stat-icon">📦</div>
-                <div class="stat-content">
-                    <h3>Productos</h3>
-                    <div class="stat-value">@estadisticas.Inventario.TotalProductos</div>
-                    <div class="stat-detail">@estadisticas.Inventario.ProductosStockBajo con stock bajo</div>
-                </div>
-            </div>
-
-            <div class="stat-card stat-warning">
-                <div class="stat-icon">👥</div>
-                <div class="stat-content">
-                    <h3>Clientes</h3>
-                    <div class="stat-value">@estadisticas.Clientes.Total</div>
-                    <div class="stat-detail">@estadisticas.Clientes.NuevosEsteMes nuevos este mes</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row mt-4">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h5>🏆 Productos Más Vendidos</h5>
-                    </div>
-                    <div class="card-body">
-                        @if (estadisticas.ProductosTop.Any())
-                        {
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Producto</th>
-                                        <th class="text-end">Cantidad</th>
-                                        <th class="text-end">Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var producto in estadisticas.ProductosTop)
-                                    {
-                                        <tr>
-                                            <td>@producto.Nombre</td>
-                                            <td class="text-end">@FormatearCantidad(producto.CantidadVendida)</td>
-                                            <td class="text-end">$@producto.TotalVentas.ToString("N2")</td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        }
-                        else
-                        {
-                            <p class="text-muted">No hay datos de ventas este mes</p>
-                        }
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">
-                        <h5>⚡ Acciones Rápidas</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="d-grid gap-2">
-                            <a href="/ventas/nuevo" class="btn btn-primary btn-lg">
-                                🛒 Nueva Venta
-                            </a>
-                            <a href="/productos" class="btn btn-outline-primary">
-                                📦 Gestionar Productos
-                            </a>
-                            <a href="/clientes" class="btn btn-outline-primary">
-                                👥 Gestionar Clientes
-                            </a>
-                            <a href="/reportes" class="btn btn-outline-secondary">
-                                📊 Ver Reportes
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    }
-    else
-    {
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <div class="text-muted">
-                Sesión: <strong>@SesionUsuario.UsuarioActual?.NombreCompleto</strong> (@SesionUsuario.UsuarioActual?.Rol)
-            </div>
-            <div class="d-flex gap-2">
-                <button class="btn btn-outline-secondary btn-sm" @onclick="RecargarEstadisticas">Reintentar</button>
-                <button class="btn btn-outline-danger btn-sm" @onclick="CerrarSesion">Cerrar sesión</button>
-            </div>
-        </div>
-
-        <div class="alert alert-warning">
-            @(mensajeError ?? "No se pudieron cargar los datos del dashboard.")
-        </div>
-    }
+    </section>
 </div>
-
 @code {
-    private bool loading = true;
-    private EstadisticasDashboard? estadisticas;
-    private string? mensajeError;
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    private readonly string[] grupos = { "Ventas", "Inventario", "Historial", "Clientes" };
+    private bool Gestion => Sesion.UsuarioActual?.Rol is "Admin" or "Supervisor";
+    private EstadisticasDashboard? datos;
+    private bool cargando;
+    private string error = "";
+    private DateTime? consultado;
+    protected override async Task OnInitializedAsync() { if (Gestion) await Cargar(); }
+    private static string Moneda(decimal n) => "$" + n.ToString("N2", System.Globalization.CultureInfo.GetCultureInfo("es-MX"));
+    private async Task Cargar()
     {
-        if (!firstRender)
-        {
-            return;
-        }
-
-        await SesionUsuario.CargarSesionGuardadaAsync();
-        if (!SesionUsuario.EstaAutenticado)
-        {
-            Navigation.NavigateTo("/login");
-            return;
-        }
-
-        await CargarEstadisticas();
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private async Task CargarEstadisticas()
-    {
-        loading = true;
-        mensajeError = null;
-
-        try
-        {
-            var response = await Http.GetAsync("api/dashboard/estadisticas");
-
-            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-            {
-                mensajeError = "Tu sesión expiró. Vuelve a iniciar sesión.";
-                await CerrarSesion();
-                return;
-            }
-
-            if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-            {
-                mensajeError = "Tu usuario no tiene permisos para ver el dashboard (requiere rol Admin o Supervisor).";
-                estadisticas = null;
-                return;
-            }
-
-            if (!response.IsSuccessStatusCode)
-            {
-                mensajeError = $"No se pudieron cargar estadísticas ({(int)response.StatusCode}).";
-                estadisticas = null;
-                return;
-            }
-
-            var respuesta = await response.Content.ReadFromJsonAsync<EstadisticasDashboard>();
-            if (respuesta == null)
-            {
-                mensajeError = "La API devolvió una respuesta inválida para el dashboard.";
-                estadisticas = null;
-                return;
-            }
-
-            estadisticas = respuesta;
-        }
-        catch (HttpRequestException ex)
-        {
-            mensajeError = $"Error de conexión al cargar dashboard: {ex.Message}";
-            estadisticas = null;
-        }
-        finally
-        {
-            loading = false;
-        }
-    }
-
-    private async Task CerrarSesion()
-    {
-        await SesionUsuario.CerrarSesionAsync();
-        estadisticas = null;
-        loading = false;
-        Navigation.NavigateTo("/login");
-    }
-
-    private async Task RecargarEstadisticas()
-    {
-        await CargarEstadisticas();
-    }
-
-    private static string FormatearCantidad(decimal cantidad)
-    {
-        return decimal.Truncate(cantidad) == cantidad
-            ? cantidad.ToString("N0")
-            : cantidad.ToString("N3");
-    }
-
-    public class EstadisticasDashboard
-    {
-        public VentasStat VentasHoy { get; set; } = new();
-        public VentasStat VentasMes { get; set; } = new();
-        public InventarioStat Inventario { get; set; } = new();
-        public ClientesStat Clientes { get; set; } = new();
-        public List<ProductoTop> ProductosTop { get; set; } = new();
-    }
-
-    public class VentasStat
-    {
-        public decimal Total { get; set; }
-        public int Cantidad { get; set; }
-    }
-
-    public class InventarioStat
-    {
-        public int TotalProductos { get; set; }
-        public int ProductosStockBajo { get; set; }
-        public decimal ValorInventario { get; set; }
-    }
-
-    public class ClientesStat
-    {
-        public int Total { get; set; }
-        public int NuevosEsteMes { get; set; }
-    }
-
-    public class ProductoTop
-    {
-        public int ProductoId { get; set; }
-        public string Nombre { get; set; } = "";
-        public decimal CantidadVendida { get; set; }
-        public decimal TotalVentas { get; set; }
+        if (cargando) return;
+        cargando = true; error = "";
+        try { datos = await DashboardService.ObtenerEstadisticasAsync(); consultado = DateTime.Now; }
+        catch (Exception ex) { Logs.CreateLogger("Inicio").LogError(ex, "Error al consultar Inicio"); error = "No se pudo actualizar el resumen. Puedes seguir usando los accesos o intentar de nuevo."; }
+        finally { cargando = false; }
     }
 }

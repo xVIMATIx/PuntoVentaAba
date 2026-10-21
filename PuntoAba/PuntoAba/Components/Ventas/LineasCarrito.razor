@@ -1,0 +1,41 @@
+<div class="pos-cart-heading"><h2>Carrito <span>@Items.Count</span></h2><Icono Nombre="venta" /></div>
+<div class="pos-cart-lines" aria-label="Productos de la venta">
+    @if (Items.Count == 0)
+    {
+        <div class="pos-empty"><Icono Nombre="venta" /><strong>Tu carrito está vacío</strong><span>Escanea o elige un producto.</span></div>
+    }
+    else
+    {
+        @foreach (var item in Items)
+        {
+            <article class="pos-cart-line" @key="item.Producto.Id">
+                <div class="pos-line-title"><strong>@item.Producto.Nombre</strong><b>$@((item.Producto.PrecioVenta * item.Cantidad).ToString("N2"))</b></div>
+                <small>$@item.Producto.PrecioVenta.ToString("N2") / @(item.Producto.EsPorPeso ? item.Producto.UnidadMedida : "pza")</small>
+                <div class="pos-line-actions">
+                    @if (item.Producto.EsPorPeso)
+                    {
+                        <button type="button" class="pos-weight-quantity" aria-label="@($"Editar cantidad de {item.Producto.Nombre}")" @onclick="() => OnPeso.InvokeAsync(item)">@item.Cantidad.ToString("N3") @item.Producto.UnidadMedida <Icono Nombre="editar" /></button>
+                    }
+                    else
+                    {
+                        <div class="pos-quantity">
+                            <button type="button" disabled="@(item.Cantidad <= 1)" aria-label="@($"Restar {item.Producto.Nombre}")" @onclick="() => OnRestar.InvokeAsync(item)">−</button>
+                            <input type="number" inputmode="numeric" data-pos-numeric min="1" step="1" class="pos-quantity-input" aria-label="@($"Cantidad de {item.Producto.Nombre}")"
+                                   @bind:get="item.Cantidad" @bind:set="n => OnCantidad.InvokeAsync(new CambioCantidadCarrito(item.Producto.Id, n))" />
+                            <button type="button" aria-label="@($"Sumar {item.Producto.Nombre}")" @onclick="() => OnSumar.InvokeAsync(item)">+</button>
+                        </div>
+                    }
+                    <button type="button" class="pos-remove" aria-label="@($"Eliminar {item.Producto.Nombre}")" @onclick="() => OnEliminar.InvokeAsync(item)"><Icono Nombre="eliminar" /></button>
+                </div>
+            </article>
+        }
+    }
+</div>
+@code {
+    [Parameter] public IReadOnlyList<ItemCarrito> Items { get; set; } = Array.Empty<ItemCarrito>();
+    [Parameter] public EventCallback<ItemCarrito> OnSumar { get; set; }
+    [Parameter] public EventCallback<ItemCarrito> OnRestar { get; set; }
+    [Parameter] public EventCallback<ItemCarrito> OnEliminar { get; set; }
+    [Parameter] public EventCallback<ItemCarrito> OnPeso { get; set; }
+    [Parameter] public EventCallback<CambioCantidadCarrito> OnCantidad { get; set; }
+}

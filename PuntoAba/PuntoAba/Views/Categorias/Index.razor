@@ -1,130 +1,65 @@
 @page "/categorias"
-@using Microsoft.EntityFrameworkCore
-@inject PuntoAba.Data.PuntoAbaDbContext DbContext
+@inject ICategoriaService CategoriaService
 @inject IJSRuntime JS
-
-<PageTitle>Categorías - PuntoAba</PageTitle>
-
-<div class="page-header">
-    <h1 class="page-title">📁 Categorías</h1>
-    <button class="btn btn-primary" @onclick="() => MostrarModal(null)">➕ Nueva Categoría</button>
+<PageTitle>Categorías - Abarrotes Agustín</PageTitle>
+<div class="inv-page inv-categories">
+    <div class="page-header"><div><h2 class="page-title">Categorías</h2><p class="inv-description">Organiza el catálogo para encontrar los productos con más facilidad.</p></div><button type="button" class="btn btn-primary" @onclick="() => MostrarModal(null)"><Icono Nombre="lista" />Nueva categoría</button></div>
+    @if (error != "" && !mostrarModal) { <div class="alert alert-danger" role="alert">@error</div> }
+    <div class="inv-summary inv-summary-compact"><div><span>Categorías</span><strong>@categorias.Count</strong></div><div><span>Productos agrupados</span><strong>@categorias.Sum(c => c.CantidadProductos)</strong></div><div><span>Sin productos</span><strong>@categorias.Count(c => c.CantidadProductos == 0)</strong></div></div>
+    <div class="filters-section"><label for="category-search">Buscar categoría</label><input id="category-search" type="search" class="form-control" placeholder="Nombre o descripción" @bind="buscar" @bind:event="oninput" /></div>
+    <div class="inv-category-grid">
+        @foreach (var categoria in Filtradas)
+        {
+            <article class="card inv-category-card"><div class="card-body"><div class="inv-category-symbol"><Icono Nombre="lista" /></div><h3>@categoria.Nombre</h3><p>@(string.IsNullOrWhiteSpace(categoria.Descripcion) ? "Sin descripción" : categoria.Descripcion)</p><a class="inv-category-products" href="@($"productos?categoriaId={categoria.Id}")" aria-label="@($"Ver {categoria.CantidadProductos} {(categoria.CantidadProductos == 1 ? "producto" : "productos")} de {categoria.Nombre}")"><span>@categoria.CantidadProductos @(categoria.CantidadProductos == 1 ? "producto" : "productos")</span><Icono Nombre="derecha" /></a><div class="inv-category-actions"><button type="button" class="btn btn-outline-primary" @onclick="() => MostrarModal(categoria)" aria-label="@($"Editar categoría {categoria.Nombre}")"><Icono Nombre="editar" />Editar</button><button type="button" class="btn btn-outline-danger" @onclick="() => Eliminar(categoria.Id)" disabled="@(categoria.CantidadProductos > 0)" title="@(categoria.CantidadProductos > 0 ? "La categoría tiene productos asignados" : "Eliminar categoría")" aria-describedby="@(categoria.CantidadProductos > 0 ? $"category-delete-reason-{categoria.Id}" : null)" aria-label="@($"Eliminar categoría {categoria.Nombre}")"><Icono Nombre="eliminar" />Eliminar</button></div>@if(categoria.CantidadProductos > 0) { <small class="inv-category-delete-reason" id="@($"category-delete-reason-{categoria.Id}")">Eliminar no está disponible: tiene productos asignados.</small> }</div></article>
+        }
+    </div>
+    @if (!Filtradas.Any()) { <div class="card inv-empty">No hay categorías que coincidan con la búsqueda.</div> }
 </div>
-
-<div class="row">
-    @foreach (var categoria in categorias)
-    {
-        <div class="col-md-4 mb-3">
-            <div class="card h-100">
-                <div class="card-body">
-                    <h5 class="card-title">@categoria.Nombre</h5>
-                    <p class="card-text text-muted">@categoria.Descripcion</p>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="badge bg-primary">@categoria.Productos.Count productos</span>
-                        <div class="btn-group btn-group-sm">
-                            <button class="btn btn-outline-primary" @onclick="() => MostrarModal(categoria)">✏️</button>
-                            <button class="btn btn-outline-danger" @onclick="() => Eliminar(categoria.Id)" disabled="@(categoria.Productos.Any())">🗑️</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    }
-</div>
-
 @if (mostrarModal)
 {
-    <div class="modal show d-block" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">@(categoriaEditar.Id > 0 ? "Editar" : "Nueva") Categoría</h5>
-                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Nombre *</label>
-                        <input type="text" class="form-control" @bind="categoriaEditar.Nombre" />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Descripción</label>
-                        <textarea class="form-control" rows="3" @bind="categoriaEditar.Descripcion"></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CerrarModal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" @onclick="Guardar">💾 Guardar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="modal-backdrop show"></div>
+    <div class="modal show d-block inv-catalog-modal inv-category-modal" role="dialog" aria-modal="true" aria-labelledby="category-modal-title" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h3 class="modal-title" id="category-modal-title">@(categoriaEditar.Id > 0 ? "Editar categoría" : "Nueva categoría")</h3><button type="button" class="btn-close" aria-label="Cerrar categoría" disabled="@guardando" @onclick="CerrarModal"></button></div>
+        <div class="modal-body">@if (error != "") { <div class="alert alert-danger" role="alert">@error</div> }<div class="mb-3"><label class="form-label" for="category-name">Nombre *</label><input id="category-name" type="text" required aria-required="true" maxlength="100" class="form-control" @bind="categoriaEditar.Nombre" disabled="@guardando" /></div><div class="mb-3"><label class="form-label" for="category-description">Descripción (opcional)</label><textarea id="category-description" maxlength="500" class="form-control" rows="3" @bind="categoriaEditar.Descripcion" disabled="@guardando"></textarea></div></div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" @onclick="CerrarModal" disabled="@guardando">Cancelar</button><button type="button" class="btn btn-primary" @onclick="Guardar" disabled="@guardando">@(guardando ? "Guardando…" : "Guardar categoría")</button></div>
+    </div></div></div><div class="modal-backdrop show"></div>
 }
 
 @code {
-    private List<Models.Categoria> categorias = new();
-    private bool mostrarModal = false;
-    private Models.Categoria categoriaEditar = new();
-
-    protected override async Task OnInitializedAsync()
-    {
-        await CargarCategorias();
-    }
-
+    private List<CategoriaDto> categorias = new();
+    private string buscar = "";
+    private IEnumerable<CategoriaDto> Filtradas => categorias.Where(c => c.Nombre.Contains(buscar.Trim(), StringComparison.CurrentCultureIgnoreCase) || (c.Descripcion?.Contains(buscar.Trim(), StringComparison.CurrentCultureIgnoreCase) ?? false)).OrderBy(c => c.Nombre, StringComparer.Create(System.Globalization.CultureInfo.GetCultureInfo("es-MX"), true));
+    private CategoriaDto categoriaEditar = new();
+    private bool mostrarModal, guardando;
+    private string error = "";
+    protected override async Task OnInitializedAsync() => await CargarCategorias();
     private async Task CargarCategorias()
     {
-        categorias = await DbContext.Categorias
-            .Include(c => c.Productos)
-            .Where(c => c.Activo)
-            .ToListAsync();
+        try { categorias = await CategoriaService.ObtenerTodasAsync(); }
+        catch (Exception ex) { error = ex.Message; }
     }
-
-    private void MostrarModal(Models.Categoria? categoria)
+    private void MostrarModal(CategoriaDto? c)
     {
-        categoriaEditar = categoria ?? new Models.Categoria();
+        error = ""; categoriaEditar = c == null ? new() : new CategoriaDto { Id = c.Id, Nombre = c.Nombre, Descripcion = c.Descripcion };
         mostrarModal = true;
     }
-
-    private void CerrarModal()
-    {
-        mostrarModal = false;
-    }
-
+    private void CerrarModal() { if (!guardando) mostrarModal = false; }
     private async Task Guardar()
     {
+        if (guardando) return; guardando = true; error = "";
         try
         {
-            if (categoriaEditar.Id == 0)
-            {
-                categoriaEditar.FechaCreacion = DateTime.UtcNow;
-                DbContext.Categorias.Add(categoriaEditar);
-            }
-            else
-            {
-                categoriaEditar.FechaActualizacion = DateTime.UtcNow;
-                DbContext.Categorias.Update(categoriaEditar);
-            }
-            await DbContext.SaveChangesAsync();
-            await CargarCategorias();
-            CerrarModal();
-            await JS.InvokeVoidAsync("alert", "Categoría guardada exitosamente");
+            if (categoriaEditar.Id == 0) await CategoriaService.CrearAsync(new() { Nombre = categoriaEditar.Nombre, Descripcion = categoriaEditar.Descripcion });
+            else if (await CategoriaService.ActualizarAsync(categoriaEditar.Id, new() { Nombre = categoriaEditar.Nombre, Descripcion = categoriaEditar.Descripcion ?? "" }) == null)
+                throw new ArgumentException("La categoría ya no existe.");
+            await CargarCategorias(); mostrarModal = false;
         }
-        catch (Exception ex)
-        {
-            await JS.InvokeVoidAsync("alert", $"Error: {ex.Message}");
-        }
+        catch (Exception ex) { error = ex.Message; }
+        finally { guardando = false; }
     }
-
     private async Task Eliminar(int id)
     {
-        if (await JS.InvokeAsync<bool>("confirm", "¿Está seguro de eliminar esta categoría?"))
-        {
-            var categoria = await DbContext.Categorias.FindAsync(id);
-            if (categoria != null)
-            {
-                categoria.Activo = false;
-                await DbContext.SaveChangesAsync();
-                await CargarCategorias();
-            }
-        }
+        if (guardando || !await JS.InvokeAsync<bool>("confirm", "¿Está seguro de eliminar esta categoría?")) return;
+        try { await CategoriaService.EliminarAsync(id); await CargarCategorias(); }
+        catch (Exception ex) { error = ex.Message; }
     }
 }

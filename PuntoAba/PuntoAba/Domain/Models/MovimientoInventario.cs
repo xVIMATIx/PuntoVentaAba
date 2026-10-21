@@ -35,6 +35,11 @@ namespace PuntoAba.Models
 
         [StringLength(100)]
         public string? Referencia { get; set; }
+        public int? MovimientoOriginalId { get; set; }
+        public MovimientoInventario? MovimientoOriginal { get; set; }
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal? CostoUnitario { get; set; }
+        public Guid? OperacionId { get; set; }
 
         // Relaciones
         [ForeignKey("ProductoId")]

@@ -1,0 +1,18 @@
+﻿@implements IDisposable
+@inject SesionUsuarioService Sesion
+@inject NavigationManager Navigation
+
+<nav class="inventory-menu" aria-label="Opciones de inventario">
+    @foreach (var pantalla in MenuAplicacion.Pantallas.Where(p => p.Grupo == "Inventario" && MenuAplicacion.PuedeAbrir(p.Ruta, Sesion.UsuarioActual?.Rol)))
+    {
+        <NavLink href="@pantalla.Ruta" Match="NavLinkMatch.All" ActiveClass="is-active" class="@($"inventory-menu-link {(pantalla.Ruta == "inventario/correcciones" && MenuAplicacion.EsCorrecciones(Navigation.ToBaseRelativePath(Navigation.Uri)) ? "is-active" : "")}")">
+            <Icono Nombre="@pantalla.Icono" /><span>@(pantalla.Ruta == "inventario" ? "Consultar inventario" : pantalla.Titulo)</span>
+        </NavLink>
+    }
+</nav>
+
+@code {
+    protected override void OnInitialized() => Navigation.LocationChanged += CambiarRuta;
+    private void CambiarRuta(object? sender, LocationChangedEventArgs e) => _ = InvokeAsync(StateHasChanged);
+    public void Dispose() => Navigation.LocationChanged -= CambiarRuta;
+}

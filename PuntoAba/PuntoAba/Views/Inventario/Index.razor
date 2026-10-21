@@ -1,76 +1,42 @@
 @page "/inventario"
-@inject IProductoService ProductoService
+<PageTitle>Inventario - Abarrotes Agustín</PageTitle>
 
-<PageTitle>Inventario - PuntoAba</PageTitle>
-
-<h1 class="page-title">📋 Control de Inventario</h1>
-
-<div class="row mb-4">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header bg-warning text-dark">
-                <h5>⚠️ Productos con Stock Bajo</h5>
-            </div>
-            <div class="card-body">
-                @if (productosStockBajo.Any())
-                {
-                    <div class="list-group">
-                        @foreach (var producto in productosStockBajo)
-                        {
-                            <div class="list-group-item">
-                                <div class="d-flex justify-content-between">
-                                    <div>
-                                        <strong>@producto.Codigo</strong> - @producto.Nombre
-                                        <br />
-                                        <small class="text-muted">@producto.CategoriaNombre</small>
-                                    </div>
-                                    <div>
-                                        <span class="badge bg-danger">Stock: @(producto.EsPorPeso ? producto.Stock.ToString("N3") : producto.Stock.ToString("N0"))</span>
-                                        <small class="text-muted d-block">Mínimo: @producto.StockMinimo</small>
-                                    </div>
-                                </div>
-                            </div>
-                        }
-                    </div>
-                }
-                else
-                {
-                    <p class="text-center text-muted">✅ No hay productos con stock bajo</p>
-                }
-            </div>
-        </div>
+<section class="inventory-overview" aria-labelledby="inventory-title">
+    <div class="inventory-heading">
+        <div><h2 id="inventory-title">Consultar inventario</h2><p>Revisa las existencias y detecta qué productos necesitan atención.</p></div>
+        <button type="button" class="inventory-refresh" disabled="@cargando" @onclick="Actualizar"><Icono Nombre="actualizar" /><span>@(cargando ? "Actualizando…" : "Actualizar")</span></button>
     </div>
-
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header bg-info text-white">
-                <h5>📊 Resumen de Inventario</h5>
-            </div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <strong>Total de Productos:</strong> @productos.Count
-                </div>
-                <div class="mb-3">
-                    <strong>Productos Activos:</strong> @productos.Count(p => p.Activo)
-                </div>
-                <div class="mb-3">
-                    <strong>Con Stock Bajo:</strong> @productosStockBajo.Count
-                </div>
-                <div class="mb-3">
-                    <strong>Sin Stock:</strong> @productos.Count(p => p.Stock == 0)
-                </div>
-            </div>
-        </div>
+    @if (error.Length > 0) { <p class="inventory-error" role="alert">@error</p> }
+    <div class="inventory-stats" aria-label="Resumen de existencias">
+        <button type="button" class="inventory-stat @(estadoActual == "" ? "is-selected" : "")" aria-pressed="@(estadoActual == "" ? "true" : "false")" @onclick='() => CambiarEstado("")'><span>Productos activos</span><strong>@productos.Count</strong><small>Ver todo el inventario</small></button>
+        <button type="button" class="inventory-stat @(estadoActual == "disponibles" ? "is-selected" : "")" aria-pressed="@(estadoActual == "disponibles" ? "true" : "false")" @onclick='() => CambiarEstado("disponibles")'><span>Existencia normal</span><strong>@productos.Count(p => p.Stock > 0 && p.Stock > p.StockMinimo)</strong><small>Por encima del mínimo</small></button>
+        <button type="button" class="inventory-stat is-low @(estadoActual == "bajo" ? "is-selected" : "")" aria-pressed="@(estadoActual == "bajo" ? "true" : "false")" @onclick='() => CambiarEstado("bajo")'><span>Stock bajo</span><strong>@productos.Count(p => p.Stock > 0 && p.Stock <= p.StockMinimo)</strong><small>Requieren resurtido</small></button>
+        <button type="button" class="inventory-stat is-empty @(estadoActual == "agotados" ? "is-selected" : "")" aria-pressed="@(estadoActual == "agotados" ? "true" : "false")" @onclick='() => CambiarEstado("agotados")'><span>Sin stock</span><strong>@productos.Count(p => p.Stock <= 0)</strong><small>Saldo cero o negativo</small></button>
     </div>
-</div>
-
-@code {
-    private List<ProductoDto> productos = new();
-    private List<ProductoDto> productosStockBajo = new();
-
-    protected override async Task OnInitializedAsync()
-    {
-        productos = (await ProductoService.ObtenerTodosAsync()).ToList();
-        productosStockBajo = (await ProductoService.ObtenerStockBajoAsync()).ToList();
-    }
-}
+    <section class="inventory-card" aria-labelledby="inventory-products-title">
+        <div class="inventory-card-heading"><h3 id="inventory-products-title">Existencias de productos</h3><span>@(consultado.HasValue ? $"Actualizado {consultado.Value:dd/MM/yyyy · HH:mm}" : "Consultando existencias…")</span></div>
+        <div class="inventory-filters">
+            <div class="inventory-search"><Icono Nombre="buscar" /><input type="search" aria-label="Buscar en inventario" placeholder="Buscar por nombre o código" autocomplete="off" @bind="busqueda" @bind:event="oninput" @bind:after="ReiniciarLista" /></div>
+            <select aria-label="Categoría del inventario" @bind="categoria" @bind:after="ReiniciarLista"><option value="0">Todas las categorías</option>@foreach (var c in Categorias) { <option value="@c.Id">@c.Nombre</option> }</select>
+            @if (busqueda.Length > 0 || categoria != 0) { <button type="button" class="inventory-clear" @onclick="LimpiarBusqueda">Limpiar filtros</button> }
+        </div>
+        <div class="inventory-filter-row" role="group" aria-label="Filtrar por existencias">
+            @foreach (var filtro in filtros)
+            { <button type="button" class="@(estadoActual == filtro.Valor ? "is-active" : "")" aria-pressed="@(estadoActual == filtro.Valor ? "true" : "false")" @onclick="() => CambiarEstado(filtro.Valor)">@filtro.Nombre</button> }
+            <span role="status">@filtrados.Count @(filtrados.Count == 1 ? "producto" : "productos")</span>
+        </div>
+        @if (cargando) { <div class="inventory-empty" role="status">Cargando existencias…</div> }
+        else if (filtrados.Count == 0) { <div class="inventory-empty"><Icono Nombre="caja" /><strong>No hay productos para esta consulta</strong><p>@(productos.Count == 0 ? "Los productos que registres aparecerán aquí." : "Prueba otro nombre, código, categoría o estado de existencias.")</p></div> }
+        else
+        {
+            <div class="inventory-table-scroll" tabindex="0" aria-label="Tabla de existencias, desplázate para ver todas las columnas">
+                <table class="inventory-table"><thead><tr><th>Producto</th><th>Categoría</th><th class="is-number">Existencias</th><th class="is-number">Mínimo</th><th class="is-number">Precio de venta</th><th>Estado</th></tr></thead>
+                    <tbody>@foreach (var p in filtrados.Take(visibles))
+                    { <tr><td><strong>@p.Nombre</strong><small>@p.Codigo</small></td><td>@p.CategoriaNombre</td><td class="is-number inventory-stock">@Cantidad(p.Stock, p) <small>@Unidad(p)</small></td><td class="is-number">@Cantidad(p.StockMinimo, p) <small>@Unidad(p)</small></td><td class="is-number">$@p.PrecioVenta.ToString("N2")</td><td><span class="inventory-status @(p.Stock <= 0 ? "is-empty" : p.Stock <= p.StockMinimo ? "is-low" : "is-normal")">@(p.Stock <= 0 ? "Sin stock" : p.Stock <= p.StockMinimo ? "Stock bajo" : "Disponible")</span></td></tr> }
+                    </tbody>
+                </table>
+            </div>
+            <div class="inventory-table-footer"><span>Mostrando @Math.Min(visibles, filtrados.Count) de @filtrados.Count productos</span>@if (visibles < filtrados.Count) { <button type="button" class="inventory-clear" @onclick="MostrarMas">Mostrar más productos</button> }</div>
+        }
+    </section>
+</section>

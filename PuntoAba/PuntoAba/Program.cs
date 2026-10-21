@@ -23,7 +23,8 @@ builder.Services.AddDbContext<PuntoAbaDbContext>(options =>
 });
 
 // Configuración de autenticación JWT
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "PuntoAba_SecretKey_MuySegura_2026_Change_This_In_Production";
+var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("Configura Jwt__Key mediante una variable de entorno.");
+if (Encoding.UTF8.GetByteCount(jwtKey) < 32) throw new InvalidOperationException("Jwt__Key debe contener al menos 32 bytes.");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "PuntoAba";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "PuntoAbaClients";
 
@@ -47,6 +48,13 @@ builder.Services.AddAuthentication(options =>
 });
 
 builder.Services.AddAuthorization();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IdentidadToken>();
+builder.Services.AddScoped<IAccesoOperacion, AccesoOperacion>();
+builder.Services.AddScoped<IControlInventarioService, ControlInventarioService>();
+builder.Services.AddSingleton<MotorRespaldos>();
+builder.Services.AddScoped<RespaldoService>();
+builder.Services.AddHostedService<RespaldoPeriodico>();
 
 // Configuración de CORS
 builder.Services.AddCors(options =>
@@ -61,7 +69,15 @@ builder.Services.AddCors(options =>
 
 // Registro de servicios
 builder.Services.AddScoped<IProductoService, ProductoService>();
+builder.Services.AddScoped<IClienteService, ClienteService>();
+builder.Services.AddScoped<ICategoriaService, CategoriaService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<IImagenProductoService, ImagenProductoService>();
+builder.Services.AddScoped<IInventarioService, InventarioService>();
+builder.Services.AddScoped<BorradorEntradaInventario>();
 builder.Services.AddScoped<IVentaService, VentaService>();
+builder.Services.AddScoped<ICatalogoVentaService, CatalogoVentaService>();
+builder.Services.AddScoped<PuntoAba.Presentation.Ventas.VentasEnCurso>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ISincronizacionService, SincronizacionService>();
 builder.Services.Configure<BalanzaSettings>(builder.Configuration.GetSection("Balanza"));
@@ -78,7 +94,7 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.
 builder.Services.AddScoped<SesionUsuarioService>();
 
 // Configuración de controladores
-builder.Services.AddControllers()
+builder.Services.AddControllers(options => options.Filters.Add<PuntoAba.Api.Filters.ErroresApiFilter>())
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
@@ -141,7 +157,7 @@ if (app.Environment.IsDevelopment())
         try
         {
             dbContext.Database.Migrate();
-            AsegurarUsuarioAdminDesarrollo(dbContext, logger);
+            AsegurarUsuarioAdminDesarrollo(dbContext, logger, app.Configuration);
         }
         catch (Exception ex)
         {
@@ -193,18 +209,24 @@ app.MapGet("/health", () => Results.Ok(new
 {
     status = "Healthy",
     timestamp = DateTime.UtcNow,
-    version = "1.0.0"
+    version = "2.0.0"
 }))
 .WithName("HealthCheck")
 .WithTags("Health");
 
 app.Run();
 
-static void AsegurarUsuarioAdminDesarrollo(PuntoAbaDbContext dbContext, ILogger logger)
+static void AsegurarUsuarioAdminDesarrollo(PuntoAbaDbContext dbContext, ILogger logger, IConfiguration configuration)
 {
     const string usuarioAdmin = "admin";
     const string emailAdmin = "admin@puntoaba.com";
-    const string passwordAdmin = "Admin123";
+    var passwordAdmin = configuration["Bootstrap:AdminPassword"];
+    if (string.IsNullOrWhiteSpace(passwordAdmin))
+    {
+        logger.LogInformation("Configura Bootstrap__AdminPassword para inicializar el administrador de desarrollo.");
+        return;
+    }
+    if (passwordAdmin.Length < 12) throw new InvalidOperationException("Bootstrap__AdminPassword requiere al menos 12 caracteres.");
     const string hashPlaceholder = "$2a$11$9vJZ5qZ5qZ5qZ5qZ5qZ5qOxK3kZ4kZ4kZ4kZ4kZ4kZ4kZ4kZ4kZ4m";
 
     var admin = dbContext.Usuarios.FirstOrDefault(u => u.NombreUsuario == usuarioAdmin);

@@ -1,0 +1,29 @@
+<form class="scanner-box" @onsubmit="Leer" @onsubmit:preventDefault="true">
+    <label for="codigo-lector">Escanear o escribir código</label>
+    <div class="scanner-controls">
+        <input id="codigo-lector" data-touch-enter type="text" class="form-control" @ref="entrada"
+               @bind="codigo" @bind:event="oninput" autocomplete="off" spellcheck="false"
+               placeholder="Código del producto" aria-describedby="ayuda-lector" disabled="@(!Habilitado)" />
+        <button type="submit" class="btn btn-primary" disabled="@(!Habilitado)">Agregar</button>
+    </div>
+    <small id="ayuda-lector">Coloca el cursor aquí y escanea. Configura el lector para terminar con Enter.</small>
+    @if (!string.IsNullOrEmpty(Mensaje))
+    {
+        <div class="scanner-message @(Error ? "scanner-error" : "scanner-success")" role="status" aria-live="polite">@Mensaje</div>
+    }
+</form>
+@code {
+    [Parameter] public bool Habilitado { get; set; }
+    [Parameter] public string Mensaje { get; set; } = "";
+    [Parameter] public bool Error { get; set; }
+    [Parameter] public EventCallback<string> OnLeer { get; set; }
+    private string codigo = "";
+    private ElementReference entrada;
+    private async Task Leer()
+    {
+        if (!Habilitado) return;
+        var lectura = codigo.Trim(); codigo = "";
+        if (lectura.Length > 0) await OnLeer.InvokeAsync(lectura);
+    }
+    public ValueTask EnfocarAsync() => entrada.FocusAsync(preventScroll: true);
+}

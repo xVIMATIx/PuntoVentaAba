@@ -8,10 +8,12 @@ namespace PuntoAba.Services
     public class VentaService : IVentaService
     {
         private readonly PuntoAbaDbContext _context;
+        private readonly IAccesoOperacion _acceso;
 
-        public VentaService(PuntoAbaDbContext context)
+        public VentaService(PuntoAbaDbContext context, IAccesoOperacion acceso)
         {
             _context = context;
+            _acceso = acceso;
         }
 
         public async Task<VentaDto?> ObtenerPorIdAsync(int id)
@@ -56,30 +58,39 @@ namespace PuntoAba.Services
 
         public async Task<VentaDto> CrearAsync(CrearVentaDto dto)
         {
+            var actor = await _acceso.ExigirAsync("Admin", "Supervisor", "Cajero"); dto.UsuarioId = actor.Id;
+            if (dto.OperacionId == Guid.Empty || dto.Detalles.Count == 0) throw new ArgumentException("La venta requiere productos y un identificador válido.");
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
+                var existente = await _context.Ventas.AsNoTracking().FirstOrDefaultAsync(v => v.OperacionId == dto.OperacionId);
+                if (existente != null) { if (existente.UsuarioId != actor.Id) throw new UnauthorizedAccessException(); return (await ObtenerPorIdAsync(existente.Id))!; }
                 // Generar número de venta
                 var numeroVenta = await GenerarNumeroVentaAsync();
 
                 // Calcular totales
                 decimal subtotal = 0;
                 var detalles = new List<DetalleVenta>();
+                var productosActualizados = new HashSet<int>();
 
                 foreach (var detalleDto in dto.Detalles)
                 {
                     var producto = await _context.Productos.FindAsync(detalleDto.ProductoId);
                     if (producto == null)
-                        throw new Exception($"Producto con ID {detalleDto.ProductoId} no encontrado");
+                        throw new ArgumentException($"Producto con ID {detalleDto.ProductoId} no encontrado");
+                    if (productosActualizados.Add(producto.Id))
+                        await _context.Entry(producto).ReloadAsync();
+                    if (!producto.Activo) throw new ArgumentException("El producto está inactivo.");
+                    ControlInventarioService.CantidadValida(producto, detalleDto.Cantidad);
 
                     if (detalleDto.Cantidad <= 0)
-                        throw new Exception($"La cantidad del producto {producto.Nombre} debe ser mayor a cero");
+                        throw new ArgumentException($"La cantidad del producto {producto.Nombre} debe ser mayor a cero");
 
                     if (!producto.EsPorPeso && detalleDto.Cantidad != Math.Truncate(detalleDto.Cantidad))
-                        throw new Exception($"El producto {producto.Nombre} se vende por unidad y requiere cantidades enteras");
+                        throw new ArgumentException($"El producto {producto.Nombre} se vende por unidad y requiere cantidades enteras");
 
-                    if (producto.Stock < detalleDto.Cantidad)
-                        throw new Exception($"Stock insuficiente para el producto {producto.Nombre}");
+                    // La venta puede dejar stock negativo para reflejar diferencias de captura.
+                    // Conservamos el saldo real y su movimiento, sin ajustar existencias a cero.
 
                     var subtotalDetalle = (detalleDto.Cantidad * detalleDto.PrecioUnitario) - detalleDto.Descuento;
                     subtotal += subtotalDetalle;
@@ -97,6 +108,7 @@ namespace PuntoAba.Services
 
                     // Actualizar stock
                     producto.Stock -= detalleDto.Cantidad;
+                    producto.VersionInventario++;
                     producto.FechaActualizacion = DateTime.UtcNow;
 
                     // Registrar movimiento de inventario
@@ -109,15 +121,32 @@ namespace PuntoAba.Services
                         StockNuevo = producto.Stock,
                         FechaMovimiento = DateTime.UtcNow,
                         Motivo = "Venta",
+                        UsuarioId = dto.UsuarioId,
+                        CostoUnitario = producto.PrecioCompra,
                         Referencia = numeroVenta
                     };
                     _context.MovimientosInventario.Add(movimiento);
                 }
 
                 var total = subtotal - dto.Descuento + dto.Impuesto;
+                if (dto.Descuento < 0 || dto.Descuento > subtotal || dto.Impuesto < 0 || total < 0)
+                    throw new ArgumentException("Revisa los importes de la venta.");
+                decimal? recibido = null, cambio = null;
+                if (string.Equals(dto.MetodoPago, "Efectivo", StringComparison.OrdinalIgnoreCase))
+                {
+                    var totalEfectivo = decimal.Round(total, 2, MidpointRounding.AwayFromZero);
+                    if (!dto.Recibido.HasValue || dto.Recibido.Value < 0 || dto.Recibido.Value > 9999999999999999.99m
+                        || decimal.Round(dto.Recibido.Value, 2) != dto.Recibido.Value || dto.Recibido.Value < totalEfectivo)
+                        throw new ArgumentException("Captura un efectivo recibido válido que cubra el total, con hasta dos decimales.");
+                    recibido = dto.Recibido.Value;
+                    cambio = recibido.Value - totalEfectivo;
+                }
+                else if (dto.Recibido.HasValue)
+                    throw new ArgumentException("El efectivo recibido solo corresponde al método Efectivo.");
 
                 var venta = new Venta
                 {
+                    OperacionId = dto.OperacionId,
                     NumeroVenta = numeroVenta,
                     FechaVenta = DateTime.Now,
                     ClienteId = dto.ClienteId,
@@ -126,6 +155,8 @@ namespace PuntoAba.Services
                     Descuento = dto.Descuento,
                     Impuesto = dto.Impuesto,
                     Total = total,
+                    Recibido = recibido,
+                    Cambio = cambio,
                     MetodoPago = dto.MetodoPago,
                     EstadoVenta = "Completada",
                     Notas = dto.Notas,
@@ -144,6 +175,7 @@ namespace PuntoAba.Services
             catch
             {
                 await transaction.RollbackAsync();
+                _context.ChangeTracker.Clear();
                 throw;
             }
         }
@@ -238,6 +270,9 @@ namespace PuntoAba.Services
                 Descuento = venta.Descuento,
                 Impuesto = venta.Impuesto,
                 Total = venta.Total,
+                Recibido = venta.Recibido,
+                Cambio = venta.Cambio,
+                Notas = venta.Notas,
                 MetodoPago = venta.MetodoPago,
                 EstadoVenta = venta.EstadoVenta,
                 Detalles = venta.DetallesVenta.Select(d => new DetalleVentaDto
@@ -250,6 +285,7 @@ namespace PuntoAba.Services
                     PrecioUnitario = d.PrecioUnitario,
                     Descuento = d.Descuento,
                     Subtotal = d.Subtotal,
+                    UnidadMedida = d.Producto?.UnidadMedida,
                     EsPorPeso = d.Producto?.EsPorPeso ?? false
                 }).ToList()
             };

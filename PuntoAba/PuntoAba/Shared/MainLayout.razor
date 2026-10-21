@@ -1,11 +1,84 @@
-@inherits LayoutComponentBase
+﻿@inherits LayoutComponentBase
+@implements IAsyncDisposable
+@inject SesionUsuarioService Sesion
+@inject IAccesoOperacion Acceso
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
 
-<div class="main-layout">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
-
-    <main class="content-area">
-        @Body
+<div class="aba-shell" @ref="contenedor">
+    <aside class="aba-sidebar" id="aba-menu">
+        <div class="aba-brand">
+            <span class="aba-logo" role="img" aria-label="Logo provisional">AA</span>
+            <span class="aba-shop-name">Abarrotes<strong>Agustín</strong></span>
+            <button type="button" class="aba-icon-button aba-collapse" data-menu-close title="Ocultar menú" aria-label="Ocultar menú"><Icono Nombre="izquierda" /></button>
+        </div>
+        @if (listo) { <NavMenu /> }
+        <button type="button" class="aba-general-settings" disabled title="Ajustes generales: disponibles próximamente"><Icono Nombre="ajustes" /><span>Ajustes generales<small>Próximamente</small></span></button>
+    </aside>
+    <header class="aba-topbar @(CentrarTitulo ? "aba-topbar-centered" : "")">
+        <div class="aba-title-group">
+            <button type="button" class="aba-icon-button aba-reopen" data-menu-open aria-label="Mostrar menú" aria-controls="aba-menu" aria-expanded="false" title="Mostrar menú"><Icono Nombre="derecha" /></button>
+            <h1 class="aba-screen-title">@Titulo</h1>
+        </div>
+        <div class="aba-top-actions">
+            @if (Sesion.UsuarioActual != null)
+            {
+                <span class="aba-session-name">@Sesion.UsuarioActual.NombreCompleto<small>@Sesion.UsuarioActual.Rol</small></span>
+                <button type="button" class="aba-logout" @onclick="Salir">Cerrar sesión</button>
+            }
+            @if (EsInicio)
+            {
+                <button type="button" class="aba-icon-button" disabled title="Personalizar Inicio: próximamente" aria-label="Personalizar Inicio (próximamente)"><Icono Nombre="ajustes" /></button>
+            }
+        </div>
+    </header>
+    <main class="aba-content" id="aba-contenido">
+        @if (listo) { @if (MenuAplicacion.EsInventario(Ruta)) { <div class="inv-workspace"><MenuInventario />@Body</div> } else if (MenuAplicacion.Grupo(Ruta) == "Ventas") { @Body } else if (MenuAplicacion.Grupo(Ruta) != "") { <div class="module-workspace"><MenuModulo Grupo="@MenuAplicacion.Grupo(Ruta)" />@Body</div> } else { @Body } }
+        else if (error != "")
+        {
+            <section class="aba-access"><h2>Acceso al sistema</h2><p role="alert">@error</p><a class="btn btn-primary" href="login">Iniciar sesión</a><a class="btn btn-outline-primary" href="ventas/nuevo">Ir al punto de venta</a></section>
+        }
+        else { <p role="status">Verificando sesión…</p> }
     </main>
+    <HerramientasTactiles />
 </div>
+
+@code {
+    private ElementReference contenedor;
+    private IJSObjectReference? modulo;
+    private bool iniciado, listo, conectado;
+    private string error = "";
+    private string Ruta => Navigation.ToBaseRelativePath(Navigation.Uri);
+    private string Titulo => MenuAplicacion.Titulo(Ruta);
+    private bool CentrarTitulo => Ruta.Split('?')[0].Trim('/') == "inventario" || EsInicio || Ruta.Split('?')[0].Trim('/').Equals("ventas/nuevo", StringComparison.OrdinalIgnoreCase);
+    private bool EsInicio => Ruta.Split('?')[0].Trim('/') is "dashboard" or "inicio";
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) { await Sesion.CargarSesionGuardadaAsync(); iniciado = true; await Revisar(); StateHasChanged(); return; }
+        if (iniciado && !conectado)
+        {
+            conectado = true;
+            modulo = await JS.InvokeAsync<IJSObjectReference>("import", "./js/menu-shell.mjs");
+            await modulo.InvokeVoidAsync("conectar", contenedor);
+        }
+    }
+    protected override async Task OnParametersSetAsync() { if (iniciado) await Revisar(); }
+    private async Task Revisar()
+    {
+        error = "";
+        try
+        {
+            var u = await Acceso.ExigirAsync("Admin", "Supervisor", "Cajero");
+            if (!MenuAplicacion.PuedeAbrir(Ruta, u.Rol)) throw new UnauthorizedAccessException("Tu usuario no tiene permiso para esta pantalla.");
+            listo = true;
+        }
+        catch (UnauthorizedAccessException ex) { listo = false; error = ex.Message; }
+    }
+    private async Task Salir() { await Sesion.CerrarSesionAsync(); Navigation.NavigateTo("login", forceLoad: true); }
+    public async ValueTask DisposeAsync()
+    {
+        if (modulo == null) return;
+        try { await modulo.InvokeVoidAsync("desconectar", contenedor); await modulo.DisposeAsync(); }
+        catch (JSDisconnectedException) { }
+    }
+}

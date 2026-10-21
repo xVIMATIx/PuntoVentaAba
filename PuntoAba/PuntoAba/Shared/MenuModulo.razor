@@ -1,0 +1,8 @@
+﻿@inject SesionUsuarioService Sesion
+<nav class="module-menu" aria-label="@($"Opciones de {Grupo.ToLowerInvariant()}")">
+@foreach(var pantalla in MenuAplicacion.Pantallas.Where(p=>p.Grupo==Grupo && MenuAplicacion.PuedeAbrir(p.Ruta,Sesion.UsuarioActual?.Rol)))
+{
+    <NavLink href="@pantalla.Ruta" Match="NavLinkMatch.All" ActiveClass="is-active" class="module-menu-link"><Icono Nombre="@pantalla.Icono" /><span>@pantalla.Titulo</span></NavLink>
+}
+</nav>
+@code { [Parameter] public string Grupo {get;set;}=""; }

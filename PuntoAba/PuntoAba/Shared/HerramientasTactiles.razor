@@ -1,0 +1,69 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+
+<section class="aba-tools" @ref="raiz" aria-label="Herramientas táctiles">
+    <div class="aba-tool-panel aba-keyboard" data-panel="letras" hidden aria-label="Teclado táctil">
+        <div class="aba-tool-heading"><div><strong>Teclado táctil</strong><span data-destino>Selecciona un campo para escribir</span></div><button type="button" class="aba-icon-button" data-action="cerrar" aria-label="Cerrar teclado"><Icono Nombre="cerrar" /></button></div>
+        <div class="aba-key-rows">
+            @foreach (var fila in letras)
+            { <div class="aba-key-row">@foreach (var tecla in fila.Split(' ')) { <button type="button" class="aba-key aba-letter" data-key="@tecla">@tecla</button> }</div> }
+            <div class="aba-key-row aba-key-actions">
+                <button type="button" class="aba-key" data-action="mayusculas" aria-pressed="false">Mayús</button>
+                <button type="button" class="aba-key" data-action="seleccionar">Seleccionar todo</button>
+                <button type="button" class="aba-key aba-space" data-key=" ">Espacio</button>
+                <button type="button" class="aba-key" data-action="borrar" aria-label="Borrar carácter">⌫</button>
+                <button type="button" class="aba-key" data-action="siguiente">Siguiente ↵</button>
+            </div>
+        </div>
+    </div>
+    <div class="aba-tool-panel aba-numeric-panel" data-panel="numeros" hidden aria-label="Teclado numérico">
+        <div class="aba-tool-heading"><div><strong>Teclado numérico</strong><span data-destino>Selecciona un campo para escribir</span></div><button type="button" class="aba-icon-button" data-action="cerrar" aria-label="Cerrar teclado numérico"><Icono Nombre="cerrar" /></button></div>
+        <div class="aba-number-layout"><div class="aba-numeric-grid">
+            @foreach (var tecla in numeros) { <button type="button" class="aba-key" data-key="@tecla">@tecla</button> }
+            <button type="button" class="aba-key" data-action="borrar" aria-label="Borrar carácter">⌫</button>
+        </div></div>
+        <div class="aba-key-row"><button type="button" class="aba-key" data-action="limpiar">Limpiar</button><button type="button" class="aba-key" data-action="cerrar">Listo</button></div>
+    </div>
+    <div class="aba-tool-panel aba-calculator-panel" data-panel="calculadora" hidden aria-label="Calculadora sencilla">
+        <div class="aba-tool-heading"><div><strong>Calculadora</strong><span>Operaciones básicas</span></div><button type="button" class="aba-icon-button" data-action="cerrar" aria-label="Cerrar calculadora"><Icono Nombre="cerrar" /></button></div>
+        <output class="aba-calc-display" data-calc-display aria-label="Resultado de calculadora" aria-live="polite">0</output>
+        <div class="aba-calculator-grid">@foreach (var tecla in calculadora) { <button type="button" class="aba-key" data-calc="@tecla" aria-label="@Etiqueta(tecla)">@tecla</button> }</div>
+        <button type="button" class="aba-use-result" data-action="resultado">Pasar resultado al campo</button>
+    </div>
+    <p class="aba-tool-message" data-tool-message role="status" hidden></p>
+    <footer class="aba-tool-bar">
+        <button type="button" data-tool-toggle="letras" aria-expanded="false"><Icono Nombre="teclado" /><span data-tool-label>Abrir teclado táctil</span></button>
+        <button type="button" data-tool-toggle="calculadora" aria-expanded="false"><Icono Nombre="calculadora" /><span>Calculadora</span></button>
+        <button type="button" data-tool-toggle="numeros" aria-expanded="false"><Icono Nombre="numeros" /><span>Números</span></button>
+    </footer>
+</section>
+@code {
+    private ElementReference raiz;
+    protected override void OnInitialized() => Navigation.LocationChanged += AlNavegar;
+    private async void AlNavegar(object? sender, LocationChangedEventArgs args)
+    {
+        if (modulo == null) return;
+        try { await modulo.InvokeVoidAsync("alNavegar", raiz); }
+        catch (JSDisconnectedException) { }
+        catch (ObjectDisposedException) { }
+    }
+    private IJSObjectReference? modulo;
+    private readonly string[] letras = { "q w e r t y u i o p", "a s d f g h j k l ñ", "z x c v b n m , . @", "á é í ó ú ü - _ / :" };
+    private readonly string[] numeros = { "7", "8", "9", "4", "5", "6", "1", "2", "3", ".", "0" };
+    private readonly string[] calculadora = { "AC", "⌫", "%", "÷", "7", "8", "9", "×", "4", "5", "6", "−", "1", "2", "3", "+", "±", "0", ".", "=" };
+    private static string Etiqueta(string s) => s switch { "AC" => "Limpiar calculadora", "⌫" => "Borrar dígito", "÷" => "Dividir", "×" => "Multiplicar", "−" => "Restar", "+" => "Sumar", "=" => "Igual", "±" => "Cambiar signo", "%" => "Porcentaje", _ => s };
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        modulo = await JS.InvokeAsync<IJSObjectReference>("import", "./js/touch-tools.mjs");
+        await modulo.InvokeVoidAsync("conectar", raiz);
+    }
+    public async ValueTask DisposeAsync()
+    {
+        Navigation.LocationChanged -= AlNavegar;
+        if (modulo == null) return;
+        try { await modulo.InvokeVoidAsync("desconectar", raiz); await modulo.DisposeAsync(); }
+        catch (JSDisconnectedException) { }
+    }
+}

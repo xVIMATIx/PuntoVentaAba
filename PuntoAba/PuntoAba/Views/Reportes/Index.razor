@@ -1,103 +1,17 @@
 @page "/reportes"
 @inject IVentaService VentaService
-
-<PageTitle>Reportes - PuntoAba</PageTitle>
-
-<h1 class="page-title">📊 Reportes</h1>
-
-<div class="row mb-4">
-    <div class="col-md-6">
-        <label class="form-label">Fecha Inicio</label>
-        <input type="date" class="form-control" @bind="fechaInicio" />
-    </div>
-    <div class="col-md-6">
-        <label class="form-label">Fecha Fin</label>
-        <input type="date" class="form-control" @bind="fechaFin" />
-    </div>
-</div>
-
-<button class="btn btn-primary mb-4" @onclick="GenerarReporte">📈 Generar Reporte</button>
-
-@if (reporte != null)
-{
-    <div class="row">
-        <div class="col-md-3">
-            <div class="card stat-card stat-primary">
-                <div class="card-body text-center">
-                    <h6>Total Ventas</h6>
-                    <h3>$@reporte.TotalVentas.ToString("N2")</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card stat-card stat-success">
-                <div class="card-body text-center">
-                    <h6>Cantidad Ventas</h6>
-                    <h3>@reporte.CantidadVentas</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card stat-card stat-info">
-                <div class="card-body text-center">
-                    <h6>Promedio</h6>
-                    <h3>$@reporte.PromedioVenta.ToString("N2")</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card stat-card">
-                <div class="card-body text-center">
-                    <h6>Periodo</h6>
-                    <p class="mb-0">@reporte.FechaInicio.ToString("dd/MM/yyyy")</p>
-                    <small>al</small>
-                    <p>@reporte.FechaFin.ToString("dd/MM/yyyy")</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="card mt-4">
-        <div class="card-header">
-            <h5>Detalle de Ventas</h5>
-        </div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Número</th>
-                            <th>Cliente</th>
-                            <th class="text-end">Total</th>
-                            <th>Método</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var venta in reporte.Ventas)
-                        {
-                            <tr>
-                                <td>@venta.FechaVenta.ToString("dd/MM/yyyy HH:mm")</td>
-                                <td>@venta.NumeroVenta</td>
-                                <td>@venta.ClienteNombre</td>
-                                <td class="text-end">$@venta.Total.ToString("N2")</td>
-                                <td><span class="badge bg-info">@venta.MetodoPago</span></td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+<PageTitle>Reportes de ventas - PuntoAba</PageTitle>
+<div class="page-header"><div><h2 class="page-title">Reportes de ventas</h2><p>Consulta los importes y las operaciones del periodo elegido.</p></div></div>
+<form class="module-toolbar" @onsubmit="GenerarReporte" @onsubmit:preventDefault="true"><div><label for="sales-from">Desde</label><input id="sales-from" type="date" class="form-control" @bind="fechaInicio" disabled="@ocupado" /></div><div><label for="sales-to">Hasta</label><input id="sales-to" type="date" class="form-control" @bind="fechaFin" disabled="@ocupado" /></div><button type="submit" class="btn btn-primary" disabled="@ocupado">@(ocupado?"Consultando…":"Consultar reporte")</button><button type="button" class="btn btn-outline-secondary" disabled="@ocupado" @onclick="Hoy">Hoy</button><button type="button" class="btn btn-outline-secondary" disabled="@ocupado" @onclick="Mes">Este mes</button></form>
+@if(error!=""){<div class="alert alert-danger" role="alert">@error</div>}
+@if(reporte!=null){
+<div class="module-summary"><div><span>Importe de ventas</span><strong>$@reporte.TotalVentas.ToString("N2")</strong></div><div><span>Ventas registradas</span><strong>@reporte.CantidadVentas</strong></div><div><span>Importe promedio</span><strong>$@reporte.PromedioVenta.ToString("N2")</strong></div><div><span>Periodo consultado</span><strong style="font-size:16px">@reporte.FechaInicio.ToString("dd/MM/yyyy")<br />@reporte.FechaFin.ToString("dd/MM/yyyy")</strong></div></div>
+<div class="card"><div class="card-header"><span>Detalle de ventas</span><small>Abre el recibo para consultar productos y cobro</small></div><div class="table-responsive"><table class="table"><thead><tr><th>Fecha</th><th>Folio</th><th>Cliente</th><th>Total</th><th>Método</th><th></th></tr></thead><tbody>@foreach(var v in reporte.Ventas){<tr><td>@v.FechaVenta.ToString("dd/MM/yyyy HH:mm")</td><td><strong>@v.NumeroVenta</strong></td><td>@v.ClienteNombre</td><td>$@v.Total.ToString("N2")</td><td><span class="badge bg-info">@v.MetodoPago</span></td><td><a class="btn btn-outline-primary" href="@($"ventas?ventaId={v.Id}")">Ver recibo</a></td></tr>}@if(reporte.Ventas.Count==0){<tr><td colspan="6" class="module-empty">No hay ventas registradas en este periodo.</td></tr>}</tbody></table></div></div>
 }
-
-@code {
-    private DateTime fechaInicio = DateTime.Today.AddMonths(-1);
-    private DateTime fechaFin = DateTime.Today;
-    private ReporteVentasDto? reporte;
-
-    private async Task GenerarReporte()
-    {
-        reporte = await VentaService.ObtenerReporteAsync(fechaInicio, fechaFin);
-    }
+@code{
+    private DateTime fechaInicio=DateTime.Today.AddMonths(-1),fechaFin=DateTime.Today;private ReporteVentasDto? reporte;private string error="";private bool ocupado;
+    protected override async Task OnInitializedAsync()=>await GenerarReporte();
+    private Task Hoy(){fechaInicio=fechaFin=DateTime.Today;return GenerarReporte();}
+    private Task Mes(){fechaInicio=new DateTime(DateTime.Today.Year,DateTime.Today.Month,1);fechaFin=DateTime.Today;return GenerarReporte();}
+    private async Task GenerarReporte(){if(ocupado)return;error="";if(fechaInicio.Date>fechaFin.Date){error="La fecha inicial debe ser anterior o igual a la fecha final.";return;}ocupado=true;try{reporte=await VentaService.ObtenerReporteAsync(fechaInicio,fechaFin);}catch{reporte=null;error="No se pudo consultar el reporte. Inténtalo de nuevo.";}finally{ocupado=false;}}
 }

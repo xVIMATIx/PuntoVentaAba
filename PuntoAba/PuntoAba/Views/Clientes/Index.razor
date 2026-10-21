@@ -1,182 +1,36 @@
-@page "/clientes"
-@using Microsoft.EntityFrameworkCore
-@inject PuntoAba.Data.PuntoAbaDbContext DbContext
-@inject IJSRuntime JS
-
+﻿@page "/clientes"
+@inject IClienteService ClienteService
+@inject SesionUsuarioService Sesion
 <PageTitle>Clientes - PuntoAba</PageTitle>
-
-<div class="page-header">
-    <h1 class="page-title">👥 Clientes</h1>
-    <button class="btn btn-primary" @onclick="() => MostrarModal(null)">➕ Nuevo Cliente</button>
-</div>
-
-<div class="mb-3">
-    <input type="text" class="form-control" placeholder="🔍 Buscar cliente..." @bind="filtro" @bind:event="oninput" @onkeyup="Buscar" />
-</div>
-
-<div class="card">
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Nombre</th>
-                        <th>Teléfono</th>
-                        <th>Email</th>
-                        <th>Documento</th>
-                        <th class="text-center">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var cliente in clientesFiltrados)
-                    {
-                        <tr>
-                            <td><strong>@cliente.Nombre @cliente.Apellido</strong></td>
-                            <td>@cliente.Telefono</td>
-                            <td>@cliente.Email</td>
-                            <td>@cliente.DocumentoIdentidad</td>
-                            <td class="text-center">
-                                <div class="btn-group btn-group-sm">
-                                    <button class="btn btn-outline-primary" @onclick="() => MostrarModal(cliente)">✏️</button>
-                                    <button class="btn btn-outline-danger" @onclick="() => Eliminar(cliente.Id)">🗑️</button>
-                                </div>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-@if (mostrarModal)
-{
-    <div class="modal show d-block" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">@(clienteEditar.Id > 0 ? "Editar" : "Nuevo") Cliente</h5>
-                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Nombre *</label>
-                            <input type="text" class="form-control" @bind="clienteEditar.Nombre" />
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Apellido</label>
-                            <input type="text" class="form-control" @bind="clienteEditar.Apellido" />
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Teléfono</label>
-                            <input type="tel" class="form-control" @bind="clienteEditar.Telefono" />
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Email</label>
-                            <input type="email" class="form-control" @bind="clienteEditar.Email" />
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Documento</label>
-                            <input type="text" class="form-control" @bind="clienteEditar.DocumentoIdentidad" />
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">Dirección</label>
-                            <textarea class="form-control" rows="2" @bind="clienteEditar.Direccion"></textarea>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CerrarModal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" @onclick="Guardar">💾 Guardar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="modal-backdrop show"></div>
+<div class="page-header"><div><h2 class="page-title">Clientes</h2><p>Consulta tus clientes y mantén sus datos al día.</p></div><button type="button" class="btn btn-primary" disabled="@ocupado" @onclick="()=>MostrarModal(null)"><Icono Nombre="clientes" />Nuevo cliente</button></div>
+@if(error!="") { <div class="alert alert-danger" role="alert">@error</div> }@if(exito!="") { <div class="alert alert-success" role="status">@exito</div> }
+<div class="module-toolbar"><div><label for="customer-search">Buscar cliente</label><input id="customer-search" type="search" class="form-control" placeholder="Nombre, teléfono, correo o documento" @bind="filtro" @bind:event="oninput" @bind:after="Buscar" /></div><button type="button" class="btn btn-outline-secondary" disabled="@ocupado" @onclick="CargarClientes">Actualizar lista</button></div>
+<div class="card"><div class="card-header"><span>Directorio de clientes</span><small>@clientesFiltrados.Count resultados · @clientes.Count clientes activos</small></div><div class="table-responsive"><table class="table"><thead><tr><th>Nombre</th><th>Teléfono</th><th>Correo</th><th>Documento</th><th>Acciones</th></tr></thead><tbody>
+@foreach(var c in clientesFiltrados) { <tr><td><strong>@c.NombreCompleto</strong><small>@c.Direccion</small></td><td>@(c.Telefono??"—")</td><td>@(c.Email??"—")</td><td>@(c.DocumentoIdentidad??"—")</td><td><div class="btn-group"><button type="button" class="btn btn-outline-primary" disabled="@ocupado" aria-label="@($"Editar cliente {c.NombreCompleto}")" @onclick="()=>MostrarModal(c)">Editar</button>@if(Sesion.UsuarioActual?.Rol=="Admin" && c.Id!=1) { <button type="button" class="btn btn-outline-danger" disabled="@ocupado" aria-label="@($"Desactivar cliente {c.NombreCompleto}")" @onclick="()=>{errorModal=string.Empty;clienteEliminar=c;}">Desactivar</button> }</div></td></tr> }
+@if(clientesFiltrados.Count==0) { <tr><td colspan="5" class="module-empty">@(ocupado?"Cargando clientes…":"No hay clientes con esta búsqueda.")</td></tr> }
+</tbody></table></div></div>
+@if(mostrarModal) {
+<div class="modal show d-block" role="dialog" aria-modal="true" aria-labelledby="customer-title" tabindex="-1" @onkeydown="Tecla"><div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content"><form @onsubmit="Guardar" @onsubmit:preventDefault="true"><div class="modal-header"><h3 id="customer-title" class="modal-title">@(clienteEditar.Id>0?"Editar cliente":"Nuevo cliente")</h3><button type="button" class="btn-close" aria-label="Cerrar formulario de cliente" disabled="@ocupado" @onclick="CerrarModal"></button></div><div class="modal-body">
+@if(errorModal!="") { <div class="alert alert-danger" role="alert">@errorModal</div> }
+<fieldset class="inv-fieldset" disabled="@ocupado"><div class="inv-fields"><div><label for="customer-name">Nombre obligatorio</label><input id="customer-name" class="form-control" required maxlength="200" @bind="clienteEditar.Nombre" @bind:event="oninput" /></div><div><label for="customer-last">Apellido</label><input id="customer-last" class="form-control" maxlength="100" @bind="clienteEditar.Apellido" @bind:event="oninput" /></div><div><label for="customer-phone">Teléfono</label><input id="customer-phone" type="tel" class="form-control" maxlength="50" @bind="clienteEditar.Telefono" @bind:event="oninput" /></div><div><label for="customer-mail">Correo</label><input id="customer-mail" type="email" class="form-control" maxlength="100" @bind="clienteEditar.Email" @bind:event="oninput" /></div><div><label for="customer-id">Documento</label><input id="customer-id" class="form-control" maxlength="50" @bind="clienteEditar.DocumentoIdentidad" @bind:event="oninput" /></div></div><label for="customer-address">Dirección</label><textarea id="customer-address" class="form-control" maxlength="300" rows="2" @bind="clienteEditar.Direccion" @bind:event="oninput"></textarea></fieldset>
+</div><div class="modal-footer"><button type="button" class="btn btn-outline-secondary" disabled="@ocupado" @onclick="CerrarModal">Cancelar</button><button type="submit" class="btn btn-primary" disabled="@ocupado">@(ocupado?"Guardando…":"Guardar cliente")</button></div></form></div></div></div><div class="modal-backdrop show"></div>
 }
-
+@if(clienteEliminar!=null) { <div class="modal show d-block" role="dialog" aria-modal="true" aria-labelledby="customer-remove"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-header"><h3 class="modal-title" id="customer-remove">Desactivar cliente</h3></div><div class="modal-body"><p>@clienteEliminar.NombreCompleto dejará de aparecer en el directorio. Sus ventas anteriores se conservarán.</p>@if(errorModal!="") { <div class="alert alert-danger" role="alert">@errorModal</div> }</div><div class="modal-footer"><button type="button" class="btn btn-outline-secondary" disabled="@ocupado" @onclick="()=>clienteEliminar=null">Cancelar</button><button type="button" class="btn btn-outline-danger" disabled="@ocupado" @onclick="Eliminar">Desactivar cliente</button></div></div></div></div><div class="modal-backdrop show"></div> }
 @code {
-    private List<Models.Cliente> clientes = new();
-    private List<Models.Cliente> clientesFiltrados = new();
-    private bool mostrarModal = false;
-    private Models.Cliente clienteEditar = new();
-    private string filtro = "";
-
-    protected override async Task OnInitializedAsync()
-    {
-        await CargarClientes();
-    }
-
-    private async Task CargarClientes()
-    {
-        clientes = await DbContext.Clientes.Where(c => c.Activo).ToListAsync();
-        clientesFiltrados = clientes;
-    }
-
-    private void Buscar()
-    {
-        if (string.IsNullOrWhiteSpace(filtro))
-        {
-            clientesFiltrados = clientes;
-        }
-        else
-        {
-            clientesFiltrados = clientes.Where(c =>
-                c.Nombre.Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
-                (c.Apellido != null && c.Apellido.Contains(filtro, StringComparison.OrdinalIgnoreCase)) ||
-                (c.DocumentoIdentidad != null && c.DocumentoIdentidad.Contains(filtro, StringComparison.OrdinalIgnoreCase))
-            ).ToList();
-        }
-    }
-
-    private void MostrarModal(Models.Cliente? cliente)
-    {
-        clienteEditar = cliente ?? new Models.Cliente();
-        mostrarModal = true;
-    }
-
-    private void CerrarModal()
-    {
-        mostrarModal = false;
-    }
-
-    private async Task Guardar()
-    {
-        try
-        {
-            if (clienteEditar.Id == 0)
-            {
-                clienteEditar.FechaCreacion = DateTime.UtcNow;
-                DbContext.Clientes.Add(clienteEditar);
-            }
-            else
-            {
-                clienteEditar.FechaActualizacion = DateTime.UtcNow;
-                DbContext.Clientes.Update(clienteEditar);
-            }
-            await DbContext.SaveChangesAsync();
-            await CargarClientes();
-            CerrarModal();
-            await JS.InvokeVoidAsync("alert", "Cliente guardado exitosamente");
-        }
-        catch (Exception ex)
-        {
-            await JS.InvokeVoidAsync("alert", $"Error: {ex.Message}");
-        }
-    }
-
-    private async Task Eliminar(int id)
-    {
-        if (await JS.InvokeAsync<bool>("confirm", "¿Está seguro de eliminar este cliente?"))
-        {
-            var cliente = await DbContext.Clientes.FindAsync(id);
-            if (cliente != null)
-            {
-                cliente.Activo = false;
-                await DbContext.SaveChangesAsync();
-                await CargarClientes();
-            }
-        }
-    }
+    [SupplyParameterFromQuery(Name="buscar")] public string? BuscarInicial {get;set;}
+    private string? ultimoBuscar;
+    private List<ClienteDto> clientes=new(),clientesFiltrados=new();
+    private ClienteDto clienteEditar=new(); private ClienteDto? clienteEliminar;
+    private bool mostrarModal,ocupado;
+    private string filtro="",error="",errorModal="",exito="";
+    protected override async Task OnInitializedAsync()=>await CargarClientes();
+    protected override void OnParametersSet(){if(ultimoBuscar!=BuscarInicial){ultimoBuscar=BuscarInicial;filtro=BuscarInicial??"";Buscar();}}
+    private void Buscar()=>clientesFiltrados=clientes.Where(c=>string.IsNullOrWhiteSpace(filtro)||new[]{c.NombreCompleto,c.Telefono,c.Email,c.DocumentoIdentidad}.Any(t=>t?.Contains(filtro.Trim(),StringComparison.OrdinalIgnoreCase)==true)).OrderBy(c=>c.NombreCompleto,StringComparer.Create(System.Globalization.CultureInfo.GetCultureInfo("es-MX"),true)).ToList();
+    private async Task CargarClientes(){if(ocupado)return;ocupado=true;error="";try{await Recargar();}catch{error="No se pudieron consultar los clientes. Inténtalo de nuevo.";}finally{ocupado=false;}}
+    private async Task Recargar(){clientes=await ClienteService.ObtenerTodosAsync();Buscar();}
+    private void MostrarModal(ClienteDto? c){if(ocupado)return;errorModal="";exito="";clienteEditar=c==null?new():new(){Id=c.Id,Nombre=c.Nombre,Apellido=c.Apellido,Telefono=c.Telefono,Email=c.Email,Direccion=c.Direccion,DocumentoIdentidad=c.DocumentoIdentidad,Activo=c.Activo};mostrarModal=true;}
+    private void CerrarModal(){if(!ocupado)mostrarModal=false;}
+    private void Tecla(KeyboardEventArgs e){if(e.Key=="Escape")CerrarModal();}
+    private async Task Guardar(){if(ocupado)return;ocupado=true;errorModal="";try{if(string.IsNullOrWhiteSpace(clienteEditar.Nombre))throw new ArgumentException("Escribe el nombre del cliente.");if(clienteEditar.Id==0)await ClienteService.CrearAsync(new(){Nombre=clienteEditar.Nombre,Apellido=clienteEditar.Apellido,Telefono=clienteEditar.Telefono,Email=clienteEditar.Email,Direccion=clienteEditar.Direccion,DocumentoIdentidad=clienteEditar.DocumentoIdentidad});else if(await ClienteService.ActualizarAsync(clienteEditar.Id,new(){Nombre=clienteEditar.Nombre,Apellido=clienteEditar.Apellido??"",Telefono=clienteEditar.Telefono??"",Email=clienteEditar.Email??"",Direccion=clienteEditar.Direccion??"",DocumentoIdentidad=clienteEditar.DocumentoIdentidad??""})==null)throw new ArgumentException("El cliente ya no existe.");mostrarModal=false;exito="Cliente guardado.";try{await Recargar();}catch{exito+=" Actualiza la lista para consultar los cambios.";}}catch(Exception ex){errorModal=ex is ArgumentException or System.ComponentModel.DataAnnotations.ValidationException or UnauthorizedAccessException?ex.Message:"No se pudo guardar el cliente. Tu captura se conserva.";}finally{ocupado=false;}}
+    private async Task Eliminar(){if(ocupado||clienteEliminar==null)return;ocupado=true;errorModal="";try{await ClienteService.EliminarAsync(clienteEliminar.Id);clienteEliminar=null;exito="Cliente desactivado. Sus ventas se conservan.";try{await Recargar();}catch{exito+=" Actualiza la lista.";}}catch{errorModal="No se pudo desactivar el cliente.";}finally{ocupado=false;}}
 }

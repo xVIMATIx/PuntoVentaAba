@@ -17,10 +17,28 @@ namespace PuntoAba.Data
         public DbSet<DetalleVenta> DetallesVenta { get; set; }
         public DbSet<MovimientoInventario> MovimientosInventario { get; set; }
         public DbSet<RegistroSincronizacion> RegistrosSincronizacion { get; set; }
+        public DbSet<EntradaMercancia> EntradasMercancia { get; set; }
+        public DbSet<DetalleEntradaMercancia> DetallesEntradaMercancia { get; set; }
+        public DbSet<ConteoFisico> ConteosFisicos { get; set; }
+        public DbSet<DetalleConteoFisico> DetallesConteoFisico { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<Producto>().Property(p => p.VersionInventario).IsConcurrencyToken();
+            modelBuilder.Entity<Venta>().HasIndex(v => v.OperacionId).IsUnique();
+            modelBuilder.Entity<MovimientoInventario>().HasIndex(m => m.OperacionId).IsUnique();
+            modelBuilder.Entity<MovimientoInventario>().HasIndex(m => m.MovimientoOriginalId).IsUnique();
+            modelBuilder.Entity<MovimientoInventario>().HasOne(m => m.MovimientoOriginal).WithMany().HasForeignKey(m => m.MovimientoOriginalId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<ConteoFisico>().HasIndex(c => c.OperacionId).IsUnique();
+            modelBuilder.Entity<ConteoFisico>().Property(c => c.Version).IsConcurrencyToken();
+            modelBuilder.Entity<DetalleConteoFisico>().HasOne(d => d.ConteoFisico).WithMany(c => c.Detalles).HasForeignKey(d => d.ConteoFisicoId);
+            modelBuilder.Entity<DetalleConteoFisico>().HasOne(d => d.Producto).WithMany().HasForeignKey(d => d.ProductoId).OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<EntradaMercancia>().HasIndex(e => e.OperacionId).IsUnique();
+            modelBuilder.Entity<EntradaMercancia>().HasOne(e => e.Usuario).WithMany().HasForeignKey(e => e.UsuarioId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<DetalleEntradaMercancia>().HasOne(d => d.Producto).WithMany().HasForeignKey(d => d.ProductoId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<DetalleEntradaMercancia>().HasOne(d => d.EntradaMercancia).WithMany(e => e.Detalles).HasForeignKey(d => d.EntradaMercanciaId);
 
             // Configuración de índices
             modelBuilder.Entity<Producto>()
@@ -95,7 +113,7 @@ namespace PuntoAba.Data
             );
 
             // Usuario administrador inicial
-            // Password: Admin123 (hasheado con BCrypt)
+            // Password: CONFIGURAR_PASSWORD_MEDIANTE_ENTORNO (hasheado con BCrypt)
             modelBuilder.Entity<Usuario>().HasData(
                 new Usuario
                 {

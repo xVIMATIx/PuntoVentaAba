@@ -15,12 +15,14 @@ namespace PuntoAba.Services
         private readonly HttpClient _httpClient;
         private readonly IJSRuntime _jsRuntime;
         private readonly ILogger<SesionUsuarioService> _logger;
+        private readonly IdentidadToken _identidad;
 
-        public SesionUsuarioService(HttpClient httpClient, IJSRuntime jsRuntime, ILogger<SesionUsuarioService> logger)
+        public SesionUsuarioService(HttpClient httpClient, IJSRuntime jsRuntime, ILogger<SesionUsuarioService> logger, IdentidadToken identidad)
         {
             _httpClient = httpClient;
             _jsRuntime = jsRuntime;
             _logger = logger;
+            _identidad = identidad;
         }
 
         public LoginResponseDto? UsuarioActual { get; private set; }
@@ -40,7 +42,8 @@ namespace PuntoAba.Services
                     return;
                 }
 
-                var usuario = JsonSerializer.Deserialize<LoginResponseDto>(usuarioJson);
+                var validado = await _identidad.ValidarAsync(token);
+                var usuario = new LoginResponseDto { Id = validado.Id, NombreUsuario = validado.NombreUsuario, NombreCompleto = validado.NombreCompleto, Email = validado.Email, Rol = validado.Rol };
                 if (usuario == null)
                 {
                     _logger.LogWarning("No se pudo deserializar la sesión de usuario guardada.");
@@ -52,6 +55,7 @@ namespace PuntoAba.Services
                 UsuarioActual = usuario;
                 AplicarTokenHttpClient();
             }
+            catch (UnauthorizedAccessException) { LimpiarSesionEnMemoria(); }
             catch (JSException ex)
             {
                 _logger.LogWarning(ex, "No se pudo acceder a localStorage para cargar sesión.");

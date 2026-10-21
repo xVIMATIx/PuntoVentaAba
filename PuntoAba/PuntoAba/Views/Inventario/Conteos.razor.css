@@ -1,0 +1,18 @@
+.count-preparation { margin-bottom:16px; }
+.count-preparation>summary { cursor:pointer; min-height:48px; padding:14px 16px; background:#fff; border:1px solid #dce5ed; border-radius:9px; font-weight:600; color:#52748d; }
+.count-preparation[open]>summary { margin-bottom:10px; }
+.count-detail { scroll-margin-top:20px; }
+.count-detail:focus { outline:2px solid #a8c3d7; outline-offset:3px; }
+.count-notice { background:#f0f5f9; border:1px solid #d7e3ed; border-radius:8px; padding:14px; margin-bottom:16px; color:#52748d; }
+.count-progress { display:flex; gap:12px; justify-content:space-between; flex-wrap:wrap; margin-bottom:12px; color:#52748d; }
+.count-progress span { font-size:12px; }
+.count-actions { display:flex; flex-wrap:wrap; gap:16px; }
+.count-actions>div { flex:1; min-width:210px; }
+.count-actions button { width:100%; min-height:48px; }
+.count-actions small { display:block; color:#738b9c; margin-top:7px; font-size:12px; line-height:1.5; }
+.count-current { background:#eef5fa; }
+.count-overlay { position:fixed; inset:0; background:#162c4259; z-index:2000; display:flex; align-items:center; justify-content:center; padding:20px; }
+.count-dialog { width:min(560px,100%); max-height:80vh; overflow:auto; background:#fff; border-radius:12px; padding:24px; box-shadow:0 18px 60px #162c4233; color:#48677f; }
+.count-dialog h3 { font-size:20px; margin-bottom:16px; }
+.count-dialog p { line-height:1.6; }
+.count-dialog button { min-height:48px; }

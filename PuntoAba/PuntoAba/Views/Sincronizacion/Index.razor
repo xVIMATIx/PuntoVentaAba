@@ -1,116 +1,13 @@
-@page "/sincronizacion"
+﻿@page "/sincronizacion"
 @inject ISincronizacionService SincronizacionService
-@inject IJSRuntime JS
-
 <PageTitle>Sincronización - PuntoAba</PageTitle>
-
-<h1 class="page-title">🔄 Sincronización</h1>
-
-<div class="row">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h5>📊 Estado de Sincronización</h5>
-            </div>
-            <div class="card-body">
-                @if (estado != null)
-                {
-                    <div class="mb-3">
-                        <strong>Última Sincronización:</strong><br />
-                        @(estado.UltimaSincronizacion?.ToString("dd/MM/yyyy HH:mm:ss") ?? "Nunca")
-                    </div>
-                    <div class="mb-3">
-                        <strong>Registros Pendientes:</strong> @estado.RegistrosPendientes
-                    </div>
-                    <div class="mb-3">
-                        <strong>Estado:</strong>
-                        <span class="badge @(estado.HayCambiosPendientes ? "bg-warning" : "bg-success")">
-                            @(estado.HayCambiosPendientes ? "⚠️ Pendiente" : "✅ Sincronizado")
-                        </span>
-                    </div>
-                }
-
-                <button class="btn btn-primary w-100" @onclick="Sincronizar" disabled="@sincronizando">
-                    @if (sincronizando)
-                    {
-                        <span class="spinner-border spinner-border-sm me-2"></span>
-                    }
-                    🔄 Sincronizar Ahora
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header bg-info text-white">
-                <h5>📝 Historial</h5>
-            </div>
-            <div class="card-body">
-                @if (ultimaSincronizacion != null)
-                {
-                    <div class="alert @(ultimaSincronizacion.Exitoso ? "alert-success" : "alert-danger")">
-                        <strong>Última sincronización:</strong><br />
-                        Fecha: @ultimaSincronizacion.FechaSincronizacion.ToString("dd/MM/yyyy HH:mm:ss")<br />
-                        Productos: @ultimaSincronizacion.ProductosSincronizados<br />
-                        Ventas: @ultimaSincronizacion.VentasSincronizadas<br />
-                        Clientes: @ultimaSincronizacion.ClientesSincronizados<br />
-                        Estado: @(ultimaSincronizacion.Exitoso ? "✅ Exitosa" : "❌ Error")<br />
-                        @if (!string.IsNullOrEmpty(ultimaSincronizacion.Mensaje))
-                        {
-                            <small>@ultimaSincronizacion.Mensaje</small>
-                        }
-                    </div>
-                }
-                else
-                {
-                    <p class="text-muted">No hay sincronizaciones recientes</p>
-                }
-            </div>
-        </div>
-    </div>
-</div>
-
-@code {
-    private EstadoSincronizacionDto? estado;
-    private SincronizacionResponseDto? ultimaSincronizacion;
-    private bool sincronizando = false;
-
-    protected override async Task OnInitializedAsync()
-    {
-        await CargarEstado();
-    }
-
-    private async Task CargarEstado()
-    {
-        estado = await SincronizacionService.ObtenerEstadoSincronizacionAsync();
-    }
-
-    private async Task Sincronizar()
-    {
-        sincronizando = true;
-        try
-        {
-            var datos = await SincronizacionService.ObtenerDatosParaSincronizarAsync(estado?.UltimaSincronizacion);
-            datos.DispositivoOrigen = "WEB-APP";
-            
-            ultimaSincronizacion = await SincronizacionService.SincronizarDatosAsync(datos);
-            
-            await CargarEstado();
-            
-            await JS.InvokeVoidAsync("alert", 
-                $"Sincronización {(ultimaSincronizacion.Exitoso ? "exitosa" : "fallida")}\n\n" +
-                $"Productos: {ultimaSincronizacion.ProductosSincronizados}\n" +
-                $"Ventas: {ultimaSincronizacion.VentasSincronizadas}\n" +
-                $"Clientes: {ultimaSincronizacion.ClientesSincronizados}");
-        }
-        catch (Exception ex)
-        {
-            await JS.InvokeVoidAsync("alert", $"Error en sincronización: {ex.Message}");
-        }
-        finally
-        {
-            sincronizando = false;
-        }
-    }
+<div class="page-header"><div><h2 class="page-title">Sincronización</h2><p>Consulta los cambios pendientes y el resultado del proceso de sincronización.</p></div><button type="button" class="btn btn-outline-secondary" disabled="@ocupado" @onclick="CargarEstado">Actualizar estado</button></div>
+@if(error!=""){<div class="alert alert-danger" role="alert">@error</div>}
+<div class="module-columns"><section class="card"><div class="card-header">Estado actual</div><div class="card-body">@if(estado!=null){<dl class="module-details"><div><dt>Última sincronización</dt><dd>@(estado.UltimaSincronizacion?.ToLocalTime().ToString("dd/MM/yyyy HH:mm")??"Sin registros")</dd></div><div><dt>Ventas pendientes</dt><dd>@estado.RegistrosPendientes</dd></div><div><dt>Estado</dt><dd><span class="badge @(estado.HayCambiosPendientes?"bg-warning":"bg-success")">@(estado.HayCambiosPendientes?"Cambios pendientes":"Sin cambios pendientes")</span></dd></div></dl>}else{<p class="module-empty">@(ocupado?"Consultando estado…":"No se pudo obtener el estado.")</p>}<div class="inv-actions"><button type="button" class="btn btn-primary" disabled="@(ocupado||estado==null)" @onclick="Sincronizar">@(ocupado?"Procesando…":"Sincronizar ahora")</button></div></div></section>
+<section class="card"><div class="card-header">Último resultado de esta sesión</div><div class="card-body">@if(resultado!=null){<div class="alert @(resultado.Exitoso?"alert-success":"alert-danger")" role="status">@(resultado.Exitoso?"Proceso completado":"El proceso no se completó")</div><dl class="module-details"><div><dt>Fecha</dt><dd>@resultado.FechaSincronizacion.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</dd></div><div><dt>Productos</dt><dd>@resultado.ProductosSincronizados</dd></div><div><dt>Ventas</dt><dd>@resultado.VentasSincronizadas</dd></div><div><dt>Clientes</dt><dd>@resultado.ClientesSincronizados</dd></div></dl>@if(!string.IsNullOrWhiteSpace(resultado.Mensaje)){<p class="module-note">@resultado.Mensaje</p>}}else{<p class="module-empty">Todavía no se ha ejecutado una sincronización en esta pantalla.</p>}</div></section></div>
+@code{
+    private EstadoSincronizacionDto? estado;private SincronizacionResponseDto? resultado;private bool ocupado;private string error="";
+    protected override async Task OnInitializedAsync()=>await CargarEstado();
+    private async Task CargarEstado(){if(ocupado)return;ocupado=true;error="";try{estado=await SincronizacionService.ObtenerEstadoSincronizacionAsync();}catch{error="No se pudo consultar el estado. Inténtalo de nuevo.";}finally{ocupado=false;}}
+    private async Task Sincronizar(){if(ocupado||estado==null)return;ocupado=true;error="";try{var datos=await SincronizacionService.ObtenerDatosParaSincronizarAsync(estado.UltimaSincronizacion);datos.DispositivoOrigen="WEB-APP";resultado=await SincronizacionService.SincronizarDatosAsync(datos);try{estado=await SincronizacionService.ObtenerEstadoSincronizacionAsync();}catch{error="El proceso terminó, pero no se pudo actualizar el estado. Pulsa Actualizar estado.";}}catch{error="No se pudo completar la sincronización. Consulta el estado y vuelve a intentarlo.";}finally{ocupado=false;}}
 }

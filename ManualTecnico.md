@@ -102,7 +102,7 @@ Nota: Las lineas corresponden al numero real en cada archivo del repositorio.
 **Lineas 25-47 (autenticacion JWT)**
 ```csharp
 25. // Configuración de autenticación JWT
-26. var jwtKey = builder.Configuration["Jwt:Key"] ?? "PuntoAba_SecretKey_MuySegura_2026_Change_This_In_Production";
+26. var jwtKey = builder.Configuration["Jwt:Key"] ?? "CONFIGURAR_JWT_MEDIANTE_ENTORNO";
 27. var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "PuntoAba";
 28. var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "PuntoAbaClients";
 29. 
@@ -280,7 +280,7 @@ Nota: Las lineas corresponden al numero real en cada archivo del repositorio.
 204. {
 205.     const string usuarioAdmin = "admin";
 206.     const string emailAdmin = "admin@puntoaba.com";
-207.     const string passwordAdmin = "Admin123";
+207.     const string passwordAdmin = "CONFIGURAR_PASSWORD_MEDIANTE_ENTORNO";
 208.     const string hashPlaceholder = "$2a$11$9vJZ5qZ5qZ5qZ5qZ5qZ5qOxK3kZ4kZ4kZ4kZ4kZ4kZ4kZ4kZ4kZ4m";
 209. 
 210.     var admin = dbContext.Usuarios.FirstOrDefault(u => u.NombreUsuario == usuarioAdmin);
@@ -404,7 +404,7 @@ Nota: Las lineas corresponden al numero real en cada archivo del repositorio.
 95.             );
 96. 
 97.             // Usuario administrador inicial
-98.             // Password: Admin123 (hasheado con BCrypt)
+98.             // Password: CONFIGURAR_PASSWORD_MEDIANTE_ENTORNO (hasheado con BCrypt)
 99.             modelBuilder.Entity<Usuario>().HasData(
 100.                 new Usuario
 101.                 {

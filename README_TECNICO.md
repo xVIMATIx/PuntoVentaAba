@@ -67,7 +67,7 @@ Reglas definidas en `OnModelCreating`:
 Se insertan datos iniciales:
 
 - 6 categorias base.
-- Usuario admin (password `Admin123`, hash BCrypt).
+- Usuario admin (password `CONFIGURAR_PASSWORD_MEDIANTE_ENTORNO`, hash BCrypt).
 - Cliente generico.
 
 ## Servicios de dominio (Application/Services)

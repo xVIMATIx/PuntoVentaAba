@@ -1,0 +1,6 @@
+﻿.module-menu { display:flex; align-items:stretch; gap:6px; overflow-x:auto; max-width:100%; padding:7px; margin:0 0 22px; border:1px solid #dce4eb; border-radius:11px; background:#fff; scrollbar-width:thin; scrollbar-color:#c4d0da transparent; }
+.module-menu ::deep .module-menu-link { flex:0 0 auto; display:flex; align-items:center; justify-content:center; gap:8px; min-height:52px; padding:10px 15px; border:1px solid transparent; border-radius:7px; color:#627484; font-size:13px; font-weight:600; text-decoration:none; white-space:nowrap; }
+.module-menu ::deep .module-menu-link:hover { color:#315f7c; background:#f4f7f9; }
+.module-menu ::deep .module-menu-link.is-active { color:#244c68; background:#eaf0f5; border-color:#d6e0e8; }
+.module-menu ::deep .module-menu-link:focus-visible { outline:3px solid #5984a2; outline-offset:-3px; }
+.module-menu ::deep .aba-icon { width:19px; height:19px; flex-shrink:0; }

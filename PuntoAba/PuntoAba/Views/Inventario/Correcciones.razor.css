@@ -1,0 +1,4 @@
+.corrections-page { min-width:0; }
+.correction-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px; }
+.correction-tabs button { min-height:52px; padding:12px 22px; border:1px solid #dce5ed; border-radius:9px; background:#fff; color:#668499; font-weight:600; cursor:pointer; }
+.correction-tabs button[aria-selected="true"] { background:#eaf2f8; border-color:#b6cede; color:#365e79; }

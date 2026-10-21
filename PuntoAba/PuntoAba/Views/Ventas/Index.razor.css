@@ -1,0 +1,22 @@
+.receipt-modal .modal-dialog { margin:16px auto; max-width:min(880px,calc(100% - 24px)); }
+.receipt-modal .modal-title { font-size:19px; }
+.receipt-modal .modal-content { border-radius:12px; overflow:hidden; }
+.receipt-modal .modal-body { overflow-y:auto; }
+.receipt-modal .btn-close { min-width:44px; min-height:44px; }
+.receipt-brand { font-size:23px; font-weight:700; margin-bottom:18px; color:#2f4f65; }
+.receipt-info { display:grid; grid-template-columns:1fr 1fr; gap:12px 24px; margin-bottom:20px; }
+.receipt-info dt { font-size:12px; font-weight:500; color:#647787; }
+.receipt-info dd { margin:2px 0 0; overflow-wrap:anywhere; }
+.receipt-lines { min-width:480px; }
+.receipt-lines td { vertical-align:middle; padding-top:12px; padding-bottom:12px; }
+.receipt-lines td:first-child small { display:block; color:#647787; overflow-wrap:anywhere; }
+.receipt-totals { max-width:380px; margin:12px 0 0 auto; font-variant-numeric:tabular-nums; }
+.receipt-totals>div { display:flex; justify-content:space-between; gap:18px; padding:6px 0; }
+.receipt-totals dt { font-weight:500; }
+.receipt-totals dd { margin:0; text-align:right; }
+.receipt-total { border-top:1px solid #dce4eb; font-size:22px; font-weight:700; margin-top:4px; }
+.receipt-change { border-top:1px solid #e5ebf0; font-size:20px; color:#315f7c; }
+.receipt-legacy { margin:12px 0 0; padding:10px; background:#f5f7fa; color:#657585; font-size:13px; }
+.receipt-notes { margin-top:18px; white-space:pre-wrap; overflow-wrap:anywhere; }
+.receipt-modal .modal-footer button { min-height:48px; min-width:120px; }
+@media(max-width:600px) { .receipt-info { grid-template-columns:1fr; } }

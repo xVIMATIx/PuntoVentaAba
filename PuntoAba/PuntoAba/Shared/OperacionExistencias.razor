@@ -1,0 +1,34 @@
+﻿<div class="inventory-operation">
+@if(error!="") { <div class="alert alert-danger" role="alert">@error</div> }
+@if(exito!="") { <div class="alert alert-success" role="status">@exito</div> }
+<div class="inv-operation-layout"><div class="card"><div class="card-header"><span>Registrar @(EsAjuste ? "ajuste" : "movimiento")</span><small>Identifica el producto y revisa el resultado</small></div><div class="card-body">
+<fieldset disabled="@Bloqueado" class="inv-fieldset">
+    <form class="inv-add" @onsubmit="BuscarCodigo" @onsubmit:preventDefault="true"><div><label for="op-codigo">Código del producto</label><input id="op-codigo" data-touch-enter type="text" class="form-control" @bind="codigo" @bind:event="oninput" autocomplete="off" /></div><button class="btn btn-outline-primary" type="submit">Buscar código</button></form>
+    <form @onsubmit="Revisar" @onsubmit:preventDefault="true">
+    <div class="inv-fields"><div><label for="op-producto">Producto</label><select id="op-producto" class="form-select" @bind="operacion.ProductoId" @bind:after="Seleccionar"><option value="0">Selecciona...</option>@foreach(var p in productos) { <option value="@p.Id">@p.Codigo - @p.Nombre</option> }</select></div>
+    @if(EsAjuste) {
+        <div><label>¿Qué necesitas corregir?</label><div class="adjust-direction" role="group" aria-label="Sentido del ajuste"><button type="button" aria-pressed="@(!restar)" @onclick="()=>CambiarSentido(false)">Sumar existencias</button><button type="button" aria-pressed="@restar" @onclick="()=>CambiarSentido(true)">Restar existencias</button></div></div>
+    } else { <div><label for="op-tipo">Operación</label><select id="op-tipo" class="form-select" @bind="operacion.Tipo"><option value="Merma">Merma: daño, pérdida o retiro</option><option value="DevolucionCliente">Devolución de cliente: vendible</option><option value="DevolucionNoVendible">Devolución de cliente: no vendible</option><option value="DevolucionProveedor">Devolución a proveedor</option></select></div> }
+    <div><label for="op-cantidad">Cantidad @(EsAjuste ? restar ? "a restar" : "a sumar" : "") @Unidad</label><input id="op-cantidad" class="form-control" type="text" inputmode="@(seleccionado?.EsPorPeso == true ? "decimal" : "numeric")" autocomplete="off" placeholder="Cantidad" value="@cantidadTexto" @oninput="CambiarCantidad" aria-invalid="@(errorCantidad!="")" aria-describedby="op-cantidad-help" /><small id="op-cantidad-help" class="@(errorCantidad!="" ? "text-danger" : "inv-description")">@(errorCantidad!="" ? errorCantidad : seleccionado?.EsPorPeso==true ? "Usa hasta tres decimales." : "Usa una cantidad entera mayor que cero.")</small></div>
+    <div><label for="op-referencia">Referencia @(EsAjuste ? "(opcional)" : "de devolución (obligatoria en devoluciones)")</label><input id="op-referencia" class="form-control" @bind="operacion.Referencia" @bind:event="oninput" maxlength="100" /></div></div>
+    <label for="op-motivo">Motivo obligatorio</label><textarea id="op-motivo" class="form-control" @bind="operacion.Motivo" @bind:event="oninput" maxlength="400" rows="2" placeholder="Explica por qué haces esta corrección"></textarea>
+    @if(seleccionado!=null) { <div class="inv-summary" style="margin-top:1rem"><div><span>Existencias actuales</span><strong>@seleccionado.Stock.ToString("0.###")</strong></div><div><span>Existencias resultantes</span><strong>@(CantidadCorrecta ? Resultado.ToString("0.###") : "—")</strong></div><div><span>Unidad</span><strong>@Unidad</strong></div></div> }
+    @if(operacion.Tipo=="DevolucionNoVendible") { <p class="inv-description">El artículo queda registrado como no vendible y no se suma a las existencias disponibles.</p> }
+    <div class="inv-actions"><button type="button" class="btn btn-outline-secondary" @onclick="Actualizar">Actualizar existencias</button><button type="submit" class="btn btn-primary" disabled="@(seleccionado==null)">@(EsAjuste ? "Revisar ajuste" : "Revisar operación")</button></div>
+    </form>
+</fieldset></div></div>
+<aside class="inv-guide"><div class="inv-guide-icon"><Icono Nombre="@(EsAjuste ? "ajustes" : "devolucion")" /></div><h3>@(EsAjuste ? "Ajuste manual con motivo" : "Elige la operación correcta")</h3>
+@if(EsAjuste) { <p>Elige Sumar o Restar y escribe cuántas unidades vas a corregir; no escribas el stock final.</p><p>Para comparar varios productos con lo que hay en los estantes, usa Contar productos. Para recibir compras, usa Entradas de mercancía.</p> }
+else { <p><strong>Merma:</strong> retira productos dañados o perdidos.</p><p><strong>Devolución vendible:</strong> devuelve mercancía al inventario.</p><p><strong>No vendible:</strong> registra el artículo sin sumarlo a las existencias.</p><p><strong>A proveedor:</strong> retira lo que regresas al proveedor.</p> }
+<div class="inv-guide-note">Revisar no cambia el inventario. Solo se registra al confirmar en la siguiente ventana.</div></aside></div>
+@if(mostrarRevision && seleccionado!=null) {
+<div class="adjust-overlay" @onkeydown="TeclaRevision"><section class="adjust-dialog" role="dialog" aria-modal="true" aria-labelledby="adjust-title" tabindex="-1" @ref="panelRevision">
+<h3 id="adjust-title">@(EsAjuste ? "Revisar ajuste manual" : "Revisar operación")</h3>
+<strong>@seleccionado.Nombre</strong><p>@seleccionado.Codigo · @Unidad</p>
+<dl><div><dt>@(EsAjuste ? restar ? "Cantidad a restar" : "Cantidad a sumar" : operacion.Tipo)</dt><dd>@Math.Abs(operacion.Cantidad).ToString("0.###") @Unidad</dd></div><div><dt>Existencias actuales</dt><dd>@seleccionado.Stock.ToString("0.###")</dd></div><div><dt>Existencias resultantes</dt><dd>@Resultado.ToString("0.###")</dd></div></dl>
+<p><strong>Motivo:</strong> @operacion.Motivo</p>@if(!string.IsNullOrWhiteSpace(operacion.Referencia)) { <p><strong>Referencia:</strong> @operacion.Referencia</p> }
+<p>Al confirmar se actualizarán las existencias y se guardará el movimiento con tu usuario.</p>
+<div class="inv-actions"><button type="button" class="btn btn-outline-secondary" disabled="@ocupado" @onclick="CerrarRevision">Volver a editar</button><button type="button" class="btn btn-primary" disabled="@ocupado" @onclick="Confirmar">@(ocupado ? "Guardando…" : EsAjuste ? "Confirmar ajuste" : "Confirmar operación")</button></div>
+</section></div>
+}
+</div>

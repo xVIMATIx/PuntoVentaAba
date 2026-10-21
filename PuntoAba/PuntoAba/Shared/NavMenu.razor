@@ -1,79 +1,29 @@
-<div class="sidebar-header">
-    <a class="sidebar-brand" href="dashboard">🏪 PuntoAba POS</a>
-</div>
-
-<nav class="nav-menu">
-    <ul class="nav-menu">
-        <li class="nav-item">
-            <NavLink class="nav-link" href="dashboard" Match="NavLinkMatch.All">
-                🏠 Dashboard
-            </NavLink>
-        </li>
-
-        <li class="nav-item">
-            <NavLink class="nav-link" href="ventas/nuevo">
-                🛒 Nueva Venta
-            </NavLink>
-        </li>
-
-        <li class="nav-item" style="margin-top: 1.5rem;">
-            <div style="color: rgba(255,255,255,0.5); font-size: 0.75rem; padding: 0 1rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Catálogos</div>
-        </li>
-
-        <li class="nav-item">
-            <NavLink class="nav-link" href="productos">
-                📦 Productos
-            </NavLink>
-        </li>
-
-        <li class="nav-item">
-            <NavLink class="nav-link" href="categorias">
-                📁 Categorías
-            </NavLink>
-        </li>
-
-        <li class="nav-item">
-            <NavLink class="nav-link" href="clientes">
-                👥 Clientes
-            </NavLink>
-        </li>
-
-        <li class="nav-item" style="margin-top: 1.5rem;">
-            <div style="color: rgba(255,255,255,0.5); font-size: 0.75rem; padding: 0 1rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Gestión</div>
-        </li>
-
-        <li class="nav-item">
-            <NavLink class="nav-link" href="ventas">
-                💰 Ventas
-            </NavLink>
-        </li>
-
-        <li class="nav-item">
-            <NavLink class="nav-link" href="reportes">
-                📊 Reportes
-            </NavLink>
-        </li>
-
-        <li class="nav-item">
-            <NavLink class="nav-link" href="inventario">
-                📋 Inventario
-            </NavLink>
-        </li>
-
-        <li class="nav-item" style="margin-top: 1.5rem;">
-            <div style="color: rgba(255,255,255,0.5); font-size: 0.75rem; padding: 0 1rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Sistema</div>
-        </li>
-
-        <li class="nav-item">
-            <NavLink class="nav-link" href="usuarios">
-                👤 Usuarios
-            </NavLink>
-        </li>
-
-        <li class="nav-item">
-            <NavLink class="nav-link" href="sincronizacion">
-                🔄 Sincronización
-            </NavLink>
-        </li>
-    </ul>
+﻿@inject SesionUsuarioService Sesion
+@inject NavigationManager Navigation
+@implements IDisposable
+<nav class="aba-navigation" aria-label="Menú principal">
+    <div class="aba-primary-links">
+        <NavLink href="dashboard" class="aba-nav-link"><Icono Nombre="inicio" /><span>Inicio</span></NavLink>
+        <NavLink href="ventas/nuevo" class="aba-nav-link"><Icono Nombre="venta" /><span>Ventas</span></NavLink>
+        <a href="inventario" class="aba-nav-link @(MenuAplicacion.EsInventario(Navigation.ToBaseRelativePath(Navigation.Uri)) ? "active" : "")"><Icono Nombre="caja" /><span>Inventario</span></a>
+        <a href="ventas" class="aba-nav-link @(MenuAplicacion.EsHistorial(Navigation.ToBaseRelativePath(Navigation.Uri)) ? "active" : "")"><Icono Nombre="historial" /><span>Historial</span></a>
+        @if (Gestion) { <NavLink href="clientes" class="aba-nav-link"><Icono Nombre="clientes" /><span>Clientes</span></NavLink> }
+    </div>
+    @if (Gestion)
+    {
+        <div class="aba-admin-links"><span class="aba-nav-caption">Administración</span>
+            @if (Sesion.UsuarioActual?.Rol == "Admin")
+            {
+                <NavLink href="usuarios" class="aba-nav-link"><Icono Nombre="clientes" /><span>Usuarios</span></NavLink>
+                <NavLink href="inventario/respaldos" class="aba-nav-link"><Icono Nombre="respaldo" /><span>Respaldos</span></NavLink>
+            }
+            <NavLink href="sincronizacion" class="aba-nav-link"><Icono Nombre="sincronizar" /><span>Sincronización</span></NavLink>
+        </div>
+    }
 </nav>
+@code {
+    private bool Gestion => Sesion.UsuarioActual?.Rol is "Admin" or "Supervisor";
+    protected override void OnInitialized() => Navigation.LocationChanged += CambioRuta;
+    private void CambioRuta(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs args) => _ = InvokeAsync(StateHasChanged);
+    public void Dispose() => Navigation.LocationChanged -= CambioRuta;
+}

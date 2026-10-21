@@ -1,0 +1,5 @@
+.inv-categories .filters-section { position:sticky; top:0; z-index:3; box-shadow:0 3px 8px #29435b06; }
+.inv-category-products { display:inline-flex; align-items:center; gap:12px; min-height:44px; padding:8px 12px; border:1px solid #dbe6ee; border-radius:7px; background:#f0f5f8; color:#557c96; font-size:12px; font-weight:600; text-decoration:none; }
+.inv-category-products:hover { background:#e5eef5; color:#315f7c; }
+.inv-category-products ::deep .aba-icon { width:16px; height:16px; }
+.inv-category-card .inv-category-delete-reason { font-size:11px; color:#8c98a3; line-height:1.5; display:block; margin-top:10px; }

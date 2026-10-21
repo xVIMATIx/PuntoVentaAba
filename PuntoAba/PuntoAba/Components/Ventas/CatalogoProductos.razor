@@ -1,0 +1,42 @@
+@if (Cargando)
+{
+    <p class="pos-empty" role="status">Cargando productos…</p>
+}
+else if (Productos.Count == 0)
+{
+    <div class="pos-empty"><Icono Nombre="caja" /><strong>No hay productos</strong><span>Prueba otra búsqueda o categoría.</span></div>
+}
+else
+{
+    <div class="pos-products">
+        @foreach (var producto in Productos.Take(Visibles))
+        {
+            <article class="pos-product @(producto.Stock <= 0 ? "pos-sold-out" : producto.Stock <= producto.StockMinimo ? "pos-low-stock" : "")" @key="producto.Id">
+                <button type="button" class="pos-favorite @(Favoritos.Contains(producto.Id) ? "is-favorite" : "")"
+                        aria-label="@(Favoritos.Contains(producto.Id) ? $"Quitar {producto.Nombre} de favoritos" : $"Añadir {producto.Nombre} a favoritos")"
+                        aria-pressed="@Favoritos.Contains(producto.Id)" @onclick="() => OnFavorito.InvokeAsync(producto.Id)"><Icono Nombre="estrella" /></button>
+                <button type="button" class="pos-product-add" @onclick="() => OnAgregar.InvokeAsync(producto)" aria-label="@($"Agregar {producto.Nombre}")">
+                    <div class="pos-product-image">
+                        @if (!string.IsNullOrWhiteSpace(producto.ImagenUrl)) { <img src="@producto.ImagenUrl" alt="" loading="lazy" /> }
+                        else { <Icono Nombre="caja" /> }
+                    </div>
+                    <span class="pos-product-name">@producto.Nombre</span>
+                    <strong class="pos-product-price">$@producto.PrecioVenta.ToString("N2")@if (producto.EsPorPeso) { <small>/@producto.UnidadMedida</small> }</strong>
+                    <span class="pos-product-status">
+                        @if (producto.Stock <= 0) { <span class="pos-stock-alert is-empty">Sin stock</span> }
+                        else if (producto.Stock <= producto.StockMinimo) { <span class="pos-stock-alert is-low">Stock bajo</span> }
+                    </span>
+                    <span class="pos-product-stock">Stock: @producto.Stock.ToString(producto.EsPorPeso ? "N3" : "N0") @(producto.EsPorPeso ? producto.UnidadMedida : "pzas")</span>
+                </button>
+            </article>
+        }
+    </div>
+}
+@code {
+    [Parameter] public bool Cargando { get; set; }
+    [Parameter] public IReadOnlyList<ProductoDto> Productos { get; set; } = Array.Empty<ProductoDto>();
+    [Parameter] public int Visibles { get; set; } = 24;
+    [Parameter] public IReadOnlyList<int> Favoritos { get; set; } = Array.Empty<int>();
+    [Parameter] public EventCallback<ProductoDto> OnAgregar { get; set; }
+    [Parameter] public EventCallback<int> OnFavorito { get; set; }
+}

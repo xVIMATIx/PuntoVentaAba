@@ -1,0 +1,12 @@
+.adjust-direction { display:flex; gap:8px; flex-wrap:wrap; }
+.adjust-direction button { flex:1; min-height:48px; padding:10px; border:1px solid #dce5ed; border-radius:8px; background:#fff; color:#68859a; cursor:pointer; }
+.adjust-direction button[aria-pressed="true"] { background:#eaf2f8; border-color:#adc9dd; color:#365d78; font-weight:600; }
+.adjust-overlay { position:fixed; inset:0; background:#162c4259; z-index:2000; display:flex; align-items:center; justify-content:center; padding:20px; }
+.adjust-dialog { width:min(560px,100%); max-height:80vh; overflow:auto; padding:24px; border-radius:12px; background:#fff; box-shadow:0 18px 60px #162c4233; color:#48677f; }
+.adjust-dialog h3 { font-size:20px; margin-bottom:18px; }
+.adjust-dialog dl { padding:12px; background:#f3f7fa; border-radius:8px; }
+.adjust-dialog dl>div { display:flex; gap:16px; justify-content:space-between; margin:8px 0; }
+.adjust-dialog dt { font-weight:400; }
+.adjust-dialog dd { font-weight:600; text-align:right; margin:0; }
+.adjust-dialog button { min-height:48px; }
+.adjust-dialog p { overflow-wrap:anywhere; }

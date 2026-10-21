@@ -1,0 +1,30 @@
+import assert from "node:assert/strict";
+import { Calculadora } from "../PuntoAba/PuntoAba/wwwroot/js/calculadora.mjs";
+import { temporizadorMenu } from "../PuntoAba/PuntoAba/wwwroot/js/menu-shell.mjs";
+import { editar, esCampo } from "../PuntoAba/PuntoAba/wwwroot/js/touch-tools.mjs";
+function calcular(...teclas) { const c = new Calculadora(); teclas.forEach(t => c.pulsar(t)); return c; }
+assert.equal(calcular("2","+","3","=").resultado,"5");
+assert.equal(calcular("9","−","4","=").resultado,"5");
+assert.equal(calcular("6","×","7","=").resultado,"42");
+assert.equal(calcular("8","÷","2","=").resultado,"4");
+assert.equal(calcular("0",".","1","+","0",".","2","=").resultado,"0.3");
+assert.equal(calcular("2","+","×","3","=").resultado,"6");
+assert.equal(calcular("2","+","3","×","4","=").resultado,"20");
+assert.equal(calcular("5","±").resultado,"-5");
+assert.equal(calcular("5","0","%").resultado,"0.5");
+assert.equal(calcular("8","÷","0","=").resultado,null);
+assert.equal(calcular("8","÷","0","=","AC").resultado,"0");
+assert.equal(calcular("1","2","⌫").resultado,"1");
+assert.deepEqual(editar("Agustin",3,3,"í"),{valor:"Aguístin",cursor:4});
+assert.deepEqual(editar("123",0,3,"45"),{valor:"45",cursor:2});
+assert.equal(editar("A😀B",3,3,"",true).valor,"AB");
+assert.equal(esCampo({tagName:"INPUT",type:"text",disabled:false,readOnly:false}),true);
+assert.equal(esCampo({tagName:"INPUT",type:"number",disabled:false,readOnly:true}),false);
+assert.equal(esCampo({tagName:"INPUT",type:"file",disabled:false,readOnly:false}),false);
+let ahora=0, siguiente=0, oculto=0;const tareas=new Map();
+const timer=temporizadorMenu(()=>oculto++,{programar:(fn,ms)=>{const id=++siguiente;tareas.set(id,{fn,hasta:ahora+ms});return id;},cancelar:id=>tareas.delete(id)});
+function avanzar(ms){ahora+=ms;for(const [id,t] of tareas)if(t.hasta<=ahora){tareas.delete(id);t.fn();}}
+timer.reiniciar();avanzar(299999);assert.equal(oculto,0);avanzar(1);assert.equal(oculto,1);
+timer.reiniciar();avanzar(200000);timer.reiniciar();avanzar(200000);assert.equal(oculto,1);avanzar(100000);assert.equal(oculto,2);
+timer.reiniciar();timer.detener();avanzar(400000);assert.equal(oculto,2);
+console.log("OK: calculadora, edición de texto, campos protegidos y temporizador de cinco minutos.");

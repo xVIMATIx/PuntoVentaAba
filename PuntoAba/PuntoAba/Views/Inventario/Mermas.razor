@@ -1,0 +1,60 @@
+﻿@page "/inventario/mermas"
+<PageTitle>Mermas y devoluciones - PuntoAba</PageTitle>
+<div class="inv-page loss-page">
+<div class="page-header"><div><h2 class="page-title">Mermas y devoluciones</h2><p class="inv-description">Elige qué ocurrió y registra la mercancía con el motivo correcto.</p></div></div>
+<div class="loss-tabs" role="tablist" aria-label="Tipo de movimiento">
+@foreach(var opcion in Opciones) { <button type="button" role="tab" aria-selected="@(vista==opcion.Id)" aria-controls="loss-content" disabled="@Bloqueado" @onclick="()=>CambiarVista(opcion.Id)"><Icono Nombre="@opcion.Icono" /><span>@opcion.Nombre<small>@opcion.Ayuda</small></span></button> }
+</div>
+@if(error!="") { <div class="alert alert-danger" role="alert">@error</div> }
+@if(exito!="") { <div class="alert alert-success" role="status">@exito</div> }
+<div id="loss-content" role="tabpanel" aria-label="@Titulo">
+@if(vista=="historial") {
+<section class="loss-card">
+<div class="loss-heading"><div><h3>Registros anteriores</h3><p>Solo mermas y devoluciones. Abre un registro para consultar sus detalles.</p></div><button type="button" class="btn btn-outline-primary" disabled="@ocupado" @onclick="BuscarHistorial">Actualizar</button></div>
+<form class="loss-filters" @onsubmit="BuscarHistorial" @onsubmit:preventDefault="true"><div><label for="loss-from">Desde</label><input id="loss-from" type="date" class="form-control" @bind="filtro.Desde" /></div><div><label for="loss-to">Hasta</label><input id="loss-to" type="date" class="form-control" @bind="filtro.Hasta" /></div><div><label for="loss-type">Tipo</label><select id="loss-type" class="form-select" @bind="filtro.Tipo"><option value="">Todos</option><option value="Merma">Merma</option><option value="DevolucionCliente">Devolución de cliente vendible</option><option value="DevolucionNoVendible">Devolución de cliente no vendible</option><option value="DevolucionProveedor">Devolución a proveedor</option></select></div><div><label for="loss-find">Producto, código o referencia</label><input id="loss-find" type="search" class="form-control" @bind="filtro.Buscar" @bind:event="oninput" /></div><button type="submit" class="btn btn-primary" disabled="@ocupado">Buscar registros</button></form>
+@if(ocupado) { <p role="status">Consultando registros…</p> }
+else if(registros.Count==0) { <p class="inv-empty">No hay registros con estos filtros.</p> }
+else {
+<div class="loss-records">@foreach(var m in registros) { <article><div><strong>@m.Producto</strong><small>@m.Codigo · @m.Fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</small><span>@EtiquetasInventario.Tipo(m.Tipo)</span></div><div class="loss-record-stock"><strong>@m.Cantidad.ToString("0.###") @(m.Tipo=="DevolucionNoVendible" ? "no vendible" : "")</strong><small>Existencias @m.StockAnterior.ToString("0.###") → @m.StockNuevo.ToString("0.###")</small></div><button type="button" class="btn btn-outline-primary" aria-label="@($"Ver movimiento {m.Id}")" @onclick="()=>AbrirDetalle(m)">Ver detalle</button></article> }</div>
+}
+<div class="loss-pagination"><span>@total registros · Página @filtro.Pagina de @TotalPaginas</span><div><button type="button" class="btn btn-outline-secondary" disabled="@(ocupado || filtro.Pagina<=1)" @onclick="()=>CambiarPagina(-1)">Anterior</button><button type="button" class="btn btn-outline-secondary" disabled="@(ocupado || filtro.Pagina>=TotalPaginas)" @onclick="()=>CambiarPagina(1)">Siguiente</button></div></div>
+</section>
+} else {
+<section class="loss-card">
+<div class="loss-heading"><div><h3>@Titulo</h3><p>@Ayuda</p></div><button type="button" class="btn btn-outline-secondary" disabled="@Bloqueado" @onclick="ActualizarCatalogo">Actualizar existencias</button></div>
+<fieldset class="inv-fieldset" disabled="@Bloqueado">
+@if(vista=="cliente") {
+<div class="loss-condition"><strong>¿El producto puede venderse otra vez?</strong><div role="group" aria-label="Condición del producto"><button type="button" aria-pressed="@(Captura.Vendible==true)" @onclick="()=>ElegirCondicion(true)">Sí, vuelve al inventario</button><button type="button" aria-pressed="@(Captura.Vendible==false)" @onclick="()=>ElegirCondicion(false)">No, está dañado o no es vendible</button></div><p>@(Captura.Vendible==true ? "La cantidad se sumará a las existencias disponibles." : Captura.Vendible==false ? "Se registrará la devolución sin sumar ni restar existencias disponibles." : "Elige una condición antes de registrar la devolución.")</p></div>
+<div class="loss-notice">Esta pantalla registra la mercancía. No procesa reembolsos ni modifica el cobro de la venta.</div>
+}
+<form class="loss-search" @onsubmit="BuscarProducto" @onsubmit:preventDefault="true"><Icono Nombre="buscar" /><input class="form-control" type="search" aria-label="Buscar o escanear producto" placeholder="Escanea un código o busca por nombre" autocomplete="off" data-touch-enter @bind="Captura.Busqueda" @bind:event="oninput" /><button type="submit" class="btn btn-outline-primary">Seleccionar</button></form>
+@if(!string.IsNullOrWhiteSpace(Captura.Busqueda)) { <div class="loss-results">@foreach(var p in Coincidencias) { <button type="button" @onclick="()=>SeleccionarProducto(p)"><span><strong>@p.Nombre</strong><small>@p.Codigo</small></span><span>@p.Stock.ToString("0.###") @Unidad(p)</span></button> }@if(Coincidencias.Count==0) { <p>No hay coincidencias en el catálogo activo.</p> }</div> }
+@if(Seleccionado!=null) { <div class="loss-product"><div><strong>@Seleccionado.Nombre</strong><small>@Seleccionado.Codigo · @Unidad(Seleccionado)</small></div><span>Existencias <strong>@Seleccionado.Stock.ToString("0.###")</strong></span></div> }
+<form @onsubmit="Revisar" @onsubmit:preventDefault="true">
+<div class="loss-fields"><div><label for="loss-qty">Cantidad @Unidad(Seleccionado)</label><input id="loss-qty" class="form-control" type="text" inputmode="@(Seleccionado?.EsPorPeso==true ? "decimal" : "numeric")" placeholder="Cantidad" autocomplete="off" value="@Captura.Cantidad" @oninput="CambiarCantidad" /><small>@(Seleccionado?.EsPorPeso==true ? "Hasta tres decimales." : "Piezas enteras, mayores que cero.")</small></div>
+@if(vista=="proveedor") { <div><label for="loss-supplier">Proveedor obligatorio</label><input id="loss-supplier" class="form-control" @bind="Captura.Proveedor" @bind:event="oninput" maxlength="100" placeholder="Nombre del proveedor" /></div> }
+@if(vista!="merma") { <div><label for="loss-ref">@(vista=="cliente" ? "Ticket o referencia de venta" : "Factura, nota o referencia")</label><input id="loss-ref" class="form-control" @bind="Captura.Referencia" @bind:event="oninput" maxlength="100" placeholder="Referencia obligatoria" /></div> }
+</div>
+<div class="loss-reasons"><label>Motivo</label><div role="group" aria-label="Motivos rápidos">@foreach(var motivo in Motivos) { <button type="button" aria-pressed="@(Captura.Motivo==motivo)" @onclick="()=>Captura.Motivo=motivo">@motivo</button> }</div></div>
+<label for="loss-notes">@(Captura.Motivo=="Otro" ? "Explicación obligatoria" : "Explicación adicional (opcional)")</label><textarea id="loss-notes" class="form-control" rows="2" maxlength="250" @bind="Captura.Notas" @bind:event="oninput" placeholder="Agrega detalles si hace falta"></textarea>
+@if(Seleccionado!=null) { <div class="loss-stock"><div><span>Existencias actuales</span><strong>@Seleccionado.Stock.ToString("0.###") @Unidad(Seleccionado)</strong></div><Icono Nombre="derecha" /><div><span>Existencias resultantes</span><strong>@(CantidadValida && (vista!="cliente" || Captura.Vendible.HasValue) ? Resultado.ToString("0.###") : "—") @Unidad(Seleccionado)</strong></div></div> }
+<div class="loss-actions"><small>Revisar no guarda cambios.</small><button type="submit" class="btn btn-primary" disabled="@(Seleccionado==null)">Revisar @NombreCorto</button></div>
+</form>
+</fieldset>
+</section>
+}
+</div>
+@if(mostrarRevision && Seleccionado!=null) {
+<div class="loss-overlay" @onkeydown="TeclaDialogo"><section class="loss-dialog" role="dialog" aria-modal="true" aria-labelledby="loss-review-title" tabindex="-1" @ref="panelDialogo">
+<h3 id="loss-review-title">Revisar @NombreCorto</h3><strong>@Seleccionado.Nombre</strong><p>@Seleccionado.Codigo · @Unidad(Seleccionado)</p>
+<dl><div><dt>Operación</dt><dd>@EtiquetasInventario.Tipo(Tipo)</dd></div><div><dt>Cantidad</dt><dd>@Cantidad.ToString("0.###") @Unidad(Seleccionado)</dd></div><div><dt>Existencias actuales</dt><dd>@Seleccionado.Stock.ToString("0.###")</dd></div><div><dt>Existencias resultantes</dt><dd>@Resultado.ToString("0.###")</dd></div></dl>
+@if(vista=="proveedor") { <p><strong>Proveedor:</strong> @Captura.Proveedor</p> }
+<p><strong>Motivo:</strong> @MotivoRegistro</p>@if(vista!="merma") { <p><strong>Referencia:</strong> @Captura.Referencia</p> }
+@if(vista=="cliente") { <p class="loss-notice">@(Captura.Vendible==true ? "Se sumará al inventario disponible." : "No se sumará al inventario disponible.") No se procesa ningún reembolso.</p> }
+<div class="inv-actions"><button type="button" class="btn btn-outline-secondary" disabled="@ocupado" @onclick="CerrarDialogo">Volver a editar</button><button type="button" class="btn btn-primary" disabled="@ocupado" @onclick="Confirmar">@(ocupado ? "Guardando…" : $"Confirmar {NombreCorto}")</button></div>
+</section></div>
+}
+@if(detalle!=null) {
+<div class="loss-overlay" @onkeydown="TeclaDialogo"><section class="loss-dialog" role="dialog" aria-modal="true" aria-labelledby="loss-detail-title" tabindex="-1" @ref="panelDialogo"><h3 id="loss-detail-title">Movimiento @detalle.Id</h3><strong>@detalle.Producto</strong><p>@detalle.Codigo · @detalle.Fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</p><dl><div><dt>Operación</dt><dd>@EtiquetasInventario.Tipo(detalle.Tipo)</dd></div><div><dt>Cantidad registrada</dt><dd>@detalle.Cantidad.ToString("0.###")</dd></div><div><dt>Existencias</dt><dd>@detalle.StockAnterior.ToString("0.###") → @detalle.StockNuevo.ToString("0.###")</dd></div><div><dt>Responsable</dt><dd>@(detalle.Usuario??"Sin usuario registrado")</dd></div></dl><p><strong>Motivo:</strong> @detalle.Motivo</p>@if(!string.IsNullOrWhiteSpace(detalle.Referencia)) { <p><strong>Referencia:</strong> @detalle.Referencia</p> }@if(detalle.Tipo.StartsWith("Devolucion") && detalle.Tipo!="DevolucionProveedor") { <p class="loss-notice">Este registro corresponde a mercancía; no confirma un reembolso.</p> }<button type="button" class="btn btn-outline-primary" @onclick="CerrarDialogo">Cerrar detalle</button></section></div>
+}
+</div>

@@ -1,0 +1,38 @@
+<svg class="aba-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="@Ruta" /></svg>
+@code {
+    [Parameter] public string Nombre { get; set; } = "";
+    private string Ruta => Nombre switch
+    {
+        "buscar" => "M21 21l-5-5M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16",
+        "estrella" => "m12 3 2.8 5.7 6.3.9-4.6 4.5 1.1 6.3-5.6-3-5.6 3 1.1-6.3L3 9.6l6.2-.9L12 3Z",
+        "eliminar" => "M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7",
+        "editar" => "m15 4 5 5M4 20l5-1L21 7l-5-5L4 14v6Z",
+        "efectivo" => "M2 5h20v14H2V5ZM6 9h.01M18 15h.01M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8",
+        "tarjeta" => "M3 4h18v16H3V4ZM3 9h18M7 15h4",
+        "transferencia" => "M3 7h17M16 3l4 4-4 4M21 17H4M8 13l-4 4 4 4",
+        "credito" => "M4 3h16v18H4V3ZM8 7h8M8 11h8M8 15h3M15 14v5M13 16h4",
+        "balanza" => "M4 7h16l2 14H2L4 7ZM8 7V3h8v4M8 12h8M12 12l2 3",
+        "arriba" => "m5 15 7-7 7 7",
+        "inicio" => "M3 10 12 3l9 7M5 9v12h5v-7h4v7h5V9",
+        "venta" => "M3 4h2l2 12h12l2-9H6M9 21h.01M18 21h.01",
+        "caja" => "m3 7 9-4 9 4-9 4-9-4Zm0 0v10l9 4 9-4V7M12 11v10M7 5l10 4",
+        "historial" => "M3 11a9 9 0 1 1 2 7M3 4v7h7M12 7v6l4 2",
+        "clientes" => "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M17 4a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-3-3.87",
+        "ajustes" => "M10 3h4l1 3 3 1 3-1 2 4-2 2v3l2 2-2 4-3-1-3 1-1 3h-4l-1-3-3-1-3 1-2-4 2-2v-3l-2-2 2-4 3 1 3-1 1-3ZM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6",
+        "teclado" => "M3 5h18v14H3V5Zm3 4h.01M10 9h.01M14 9h.01M18 9h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M7 16h10",
+        "calculadora" => "M6 2h12v20H6V2Zm3 4h6M9 10h.01M15 10h.01M9 14h.01M15 14h.01M9 18h.01M15 18h.01",
+        "numeros" => "M5 8h14M4 16h14M10 3 7 21M17 3l-3 18",
+        "derecha" => "m9 5 7 7-7 7",
+        "izquierda" => "m15 5-7 7 7 7",
+        "cerrar" => "m6 6 12 12M18 6 6 18",
+        "actualizar" => "M20 7a8 8 0 0 0-14-2L3 8M3 3v5h5M4 17a8 8 0 0 0 14 2l3-3M21 21v-5h-5",
+        "respaldo" => "M4 4h16v16H4V4Zm4 0v6h8V4M8 20v-6h8v6",
+        "sincronizar" => "M20 7a8 8 0 0 0-14-2L3 8M3 3v5h5M4 17a8 8 0 0 0 14 2l3-3M21 21v-5h-5",
+        "grafica" => "M4 3v17h17M8 16v-5M13 16V7M18 16V4",
+        "lista" => "M8 5h13M8 12h13M8 19h13M3 5h.01M3 12h.01M3 19h.01",
+        "entrada" => "M14 3h7v18h-7M3 12h13M11 7l5 5-5 5",
+        "resurtido" => "M3 7h18v14H3V7Zm0 0 3-4h12l3 4M12 11v6M9 14h6",
+        "devolucion" => "M4 9h9a7 7 0 0 1 0 14M9 4 4 9l5 5",
+        _ => "M4 4h16v16H4V4Z"
+    };
+}

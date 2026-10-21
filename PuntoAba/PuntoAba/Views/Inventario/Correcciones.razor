@@ -1,0 +1,21 @@
+@page "/inventario/correcciones"
+@page "/inventario/conteos"
+@page "/inventario/ajustes"
+@inject NavigationManager Navigation
+@inject SesionUsuarioService Sesion
+<PageTitle>Correcciones de inventario - PuntoAba</PageTitle>
+<div class="corrections-page">
+<div class="correction-tabs" role="tablist" aria-label="Tipo de corrección">
+    <button type="button" role="tab" id="tab-count" aria-selected="@(!manual)" aria-controls="panel-count" @onclick="()=>manual=false">Contar productos</button>
+    @if(PuedeAjustar) { <button type="button" role="tab" id="tab-adjust" aria-selected="@manual" aria-controls="panel-adjust" @onclick="()=>manual=true">Ajuste manual</button> }
+</div>
+<div id="panel-count" role="tabpanel" aria-labelledby="tab-count" hidden="@manual"><Conteos /></div>
+@if(PuedeAjustar) { <div id="panel-adjust" role="tabpanel" aria-labelledby="tab-adjust" hidden="@(!manual)"><Ajustes ProductoId="ProductoId" /></div> }
+</div>
+@code {
+    [SupplyParameterFromQuery(Name="vista")] public string? Vista { get; set; }
+    [SupplyParameterFromQuery(Name="productoId")] public int? ProductoId { get; set; }
+    private bool manual;
+    private bool PuedeAjustar => Sesion.UsuarioActual?.Rol is "Admin" or "Supervisor";
+    protected override void OnParametersSet() => manual=PuedeAjustar && (Vista=="manual" || ProductoId.HasValue || Navigation.ToBaseRelativePath(Navigation.Uri).Split('?')[0].Trim('/')=="inventario/ajustes");
+}

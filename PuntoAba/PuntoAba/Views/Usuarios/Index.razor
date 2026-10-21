@@ -1,161 +1,19 @@
 @page "/usuarios"
 @inject IAuthService AuthService
-@inject IJSRuntime JS
-
+@inject IAccesoOperacion Acceso
 <PageTitle>Usuarios - PuntoAba</PageTitle>
-
-<div class="page-header">
-    <h1 class="page-title">👤 Usuarios del Sistema</h1>
-    <button class="btn btn-primary" @onclick="() => MostrarModal(null)">➕ Nuevo Usuario</button>
-</div>
-
-<div class="card">
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Usuario</th>
-                        <th>Nombre Completo</th>
-                        <th>Email</th>
-                        <th>Rol</th>
-                        <th>Último Acceso</th>
-                        <th class="text-center">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var usuario in usuarios)
-                    {
-                        <tr>
-                            <td><strong>@usuario.NombreUsuario</strong></td>
-                            <td>@usuario.NombreCompleto</td>
-                            <td>@usuario.Email</td>
-                            <td>
-                                <span class="badge @(usuario.Rol == "Admin" ? "bg-danger" : usuario.Rol == "Supervisor" ? "bg-warning" : "bg-info")">
-                                    @usuario.Rol
-                                </span>
-                            </td>
-                            <td>@(usuario.UltimoAcceso?.ToString("dd/MM/yyyy HH:mm") ?? "Nunca")</td>
-                            <td class="text-center">
-                                <button class="btn btn-sm btn-outline-primary" @onclick="() => MostrarModal(usuario)">✏️</button>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-@if (mostrarModal)
-{
-    <div class="modal show d-block" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">@(usuarioEditar.NombreUsuario != null ? "Editar" : "Nuevo") Usuario</h5>
-                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Nombre de Usuario *</label>
-                        <input type="text" class="form-control" @bind="usuarioEditar.NombreUsuario" disabled="@(usuarioEditar.NombreUsuario != null)" />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Nombre Completo *</label>
-                        <input type="text" class="form-control" @bind="usuarioEditar.NombreCompleto" />
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Email *</label>
-                        <input type="email" class="form-control" @bind="usuarioEditar.Email" />
-                    </div>
-                    @if (usuarioEditar.NombreUsuario == null)
-                    {
-                        <div class="mb-3">
-                            <label class="form-label">Contraseña *</label>
-                            <input type="password" class="form-control" @bind="passwordNueva" />
-                        </div>
-                    }
-                    <div class="mb-3">
-                        <label class="form-label">Rol *</label>
-                        <select class="form-select" @bind="usuarioEditar.Rol">
-                            <option value="Cajero">Cajero</option>
-                            <option value="Supervisor">Supervisor</option>
-                            <option value="Admin">Administrador</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" @onclick="CerrarModal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" @onclick="Guardar">💾 Guardar</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="modal-backdrop show"></div>
-}
-
-@code {
-    private List<UsuarioDto> usuarios = new();
-    private bool mostrarModal = false;
-    private CrearUsuarioDto usuarioEditar = new();
-    private string passwordNueva = "";
-
-    protected override async Task OnInitializedAsync()
-    {
-        await CargarUsuarios();
-    }
-
-    private async Task CargarUsuarios()
-    {
-        usuarios = (await AuthService.ObtenerTodosUsuariosAsync()).ToList();
-    }
-
-    private void MostrarModal(UsuarioDto? usuario)
-    {
-        if (usuario == null)
-        {
-            usuarioEditar = new CrearUsuarioDto { Rol = "Cajero" };
-            passwordNueva = "";
-        }
-        else
-        {
-            usuarioEditar = new CrearUsuarioDto
-            {
-                NombreUsuario = usuario.NombreUsuario,
-                NombreCompleto = usuario.NombreCompleto,
-                Email = usuario.Email,
-                Rol = usuario.Rol,
-                Telefono = usuario.Telefono
-            };
-        }
-        mostrarModal = true;
-    }
-
-    private void CerrarModal()
-    {
-        mostrarModal = false;
-    }
-
-    private async Task Guardar()
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(usuarioEditar.NombreUsuario))
-            {
-                await JS.InvokeVoidAsync("alert", "Complete todos los campos requeridos");
-                return;
-            }
-
-            usuarioEditar.Password = passwordNueva;
-            await AuthService.CrearUsuarioAsync(usuarioEditar);
-            await CargarUsuarios();
-            CerrarModal();
-            await JS.InvokeVoidAsync("alert", "Usuario guardado exitosamente");
-        }
-        catch (Exception ex)
-        {
-            await JS.InvokeVoidAsync("alert", $"Error: {ex.Message}");
-        }
-    }
+<div class="page-header"><div><h2 class="page-title">Usuarios</h2><p>Administra los datos y el rol de quienes usan el punto de venta.</p></div><button type="button" class="btn btn-primary" disabled="@ocupado" @onclick="()=>MostrarModal(null)"><Icono Nombre="clientes" />Nuevo usuario</button></div>
+@if(error!="") { <div class="alert alert-danger" role="alert">@error</div> }@if(exito!="") { <div class="alert alert-success" role="status">@exito</div> }
+<div class="module-toolbar"><div><label for="user-search">Buscar usuario</label><input id="user-search" type="search" class="form-control" placeholder="Usuario, nombre o correo" @bind="buscar" @bind:event="oninput" /></div><div><label for="user-role">Rol</label><select id="user-role" class="form-select" @bind="rol"><option value="">Todos los roles</option><option>Cajero</option><option>Supervisor</option><option>Admin</option></select></div><button type="button" class="btn btn-outline-secondary" disabled="@ocupado" @onclick="CargarUsuarios">Actualizar lista</button></div>
+<div class="card"><div class="card-header"><span>Usuarios activos</span><small>@Filtrados.Count resultados</small></div><div class="table-responsive"><table class="table"><thead><tr><th>Usuario</th><th>Nombre completo</th><th>Correo</th><th>Rol</th><th>Último acceso</th><th>Acciones</th></tr></thead><tbody>@foreach(var u in Filtrados){<tr><td><strong>@u.NombreUsuario</strong></td><td>@u.NombreCompleto</td><td>@u.Email</td><td><span class="badge bg-info">@u.Rol</span></td><td>@(u.UltimoAcceso?.ToLocalTime().ToString("dd/MM/yyyy HH:mm")??"Sin accesos")</td><td><button type="button" class="btn btn-outline-primary" disabled="@ocupado" aria-label="@($"Editar usuario {u.NombreUsuario}")" @onclick="()=>MostrarModal(u)">Editar</button></td></tr>}@if(Filtrados.Count==0){<tr><td colspan="6" class="module-empty">@(ocupado?"Consultando usuarios…":"No hay usuarios con estos filtros.")</td></tr>}</tbody></table></div></div>
+@if(mostrarModal){<div class="modal show d-block" role="dialog" aria-modal="true" aria-labelledby="user-title" tabindex="-1" @onkeydown="Tecla"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><form @onsubmit="Guardar" @onsubmit:preventDefault="true"><div class="modal-header"><h3 class="modal-title" id="user-title">@(editarId>0?"Editar usuario":"Nuevo usuario")</h3><button type="button" class="btn-close" aria-label="Cerrar formulario de usuario" disabled="@ocupado" @onclick="CerrarModal"></button></div><div class="modal-body">@if(errorModal!=""){<div class="alert alert-danger" role="alert">@errorModal</div>}<fieldset class="inv-fieldset" disabled="@ocupado"><div class="mb-3"><label for="user-name">Nombre de usuario obligatorio</label><input id="user-name" class="form-control" required maxlength="100" autocomplete="off" @bind="usuarioEditar.NombreUsuario" @bind:event="oninput" disabled="@(editarId>0)" /></div><div class="mb-3"><label for="user-full">Nombre completo obligatorio</label><input id="user-full" class="form-control" required maxlength="200" @bind="usuarioEditar.NombreCompleto" @bind:event="oninput" /></div><div class="mb-3"><label for="user-mail">Correo obligatorio</label><input id="user-mail" type="email" class="form-control" required maxlength="100" @bind="usuarioEditar.Email" @bind:event="oninput" /></div><div class="mb-3"><label for="user-phone">Teléfono</label><input id="user-phone" type="tel" class="form-control" maxlength="50" @bind="usuarioEditar.Telefono" @bind:event="oninput" /></div>@if(editarId==0){<div class="mb-3"><label for="user-password">Contraseña obligatoria</label><input id="user-password" type="password" class="form-control" required autocomplete="new-password" @bind="passwordNueva" @bind:event="oninput" /></div>}<div class="mb-3"><label for="user-edit-role">Rol</label><select id="user-edit-role" class="form-select" @bind="usuarioEditar.Rol"><option value="Cajero">Cajero</option><option value="Supervisor">Supervisor</option><option value="Admin">Administrador</option></select></div><p class="module-note">Cajero: operación de ventas y conteos. Supervisor: gestión de catálogos e inventario. Administrador: incluye usuarios y respaldos.</p></fieldset></div><div class="modal-footer"><button type="button" class="btn btn-outline-secondary" disabled="@ocupado" @onclick="CerrarModal">Cancelar</button><button type="submit" class="btn btn-primary" disabled="@ocupado">@(ocupado?"Guardando…":"Guardar usuario")</button></div></form></div></div></div><div class="modal-backdrop show"></div>}
+@code{
+    private List<UsuarioDto> usuarios=new();private CrearUsuarioDto usuarioEditar=new();private int editarId;private bool mostrarModal,ocupado;private string buscar="",rol="",passwordNueva="",error="",errorModal="",exito="";
+    private List<UsuarioDto> Filtrados=>usuarios.Where(u=>(rol==""||u.Rol==rol)&&(string.IsNullOrWhiteSpace(buscar)||new[]{u.NombreUsuario,u.NombreCompleto,u.Email}.Any(t=>t.Contains(buscar.Trim(),StringComparison.OrdinalIgnoreCase)))).OrderBy(u=>u.NombreCompleto).ToList();
+    protected override async Task OnInitializedAsync()=>await CargarUsuarios();
+    private async Task CargarUsuarios(){if(ocupado)return;ocupado=true;error="";try{await Acceso.ExigirAsync("Admin");usuarios=(await AuthService.ObtenerTodosUsuariosAsync()).ToList();}catch{error="No se pudieron consultar los usuarios.";}finally{ocupado=false;}}
+    private void MostrarModal(UsuarioDto? u){if(ocupado)return;editarId=u?.Id??0;usuarioEditar=u==null?new(){Rol="Cajero"}:new(){NombreUsuario=u.NombreUsuario,NombreCompleto=u.NombreCompleto,Email=u.Email,Rol=u.Rol,Telefono=u.Telefono};passwordNueva=errorModal=exito="";mostrarModal=true;}
+    private void CerrarModal(){if(!ocupado){mostrarModal=false;passwordNueva="";}}
+    private void Tecla(KeyboardEventArgs e){if(e.Key=="Escape")CerrarModal();}
+    private async Task Guardar(){if(ocupado)return;ocupado=true;errorModal="";try{await Acceso.ExigirAsync("Admin");if(string.IsNullOrWhiteSpace(usuarioEditar.NombreUsuario)||string.IsNullOrWhiteSpace(usuarioEditar.NombreCompleto)||string.IsNullOrWhiteSpace(usuarioEditar.Email)||!new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(usuarioEditar.Email))throw new ArgumentException("Revisa el nombre, usuario y correo.");if(usuarios.Any(u=>u.Id!=editarId && u.Email.Equals(usuarioEditar.Email.Trim(),StringComparison.OrdinalIgnoreCase)))throw new ArgumentException("El correo ya está registrado.");if(editarId==0){if(string.IsNullOrWhiteSpace(passwordNueva))throw new ArgumentException("Escribe una contraseña.");usuarioEditar.Password=passwordNueva;await AuthService.CrearUsuarioAsync(usuarioEditar);}else if(await AuthService.ActualizarUsuarioAsync(editarId,new(){NombreCompleto=usuarioEditar.NombreCompleto,Email=usuarioEditar.Email,Telefono=usuarioEditar.Telefono,Rol=usuarioEditar.Rol})==null)throw new ArgumentException("El usuario ya no existe.");mostrarModal=false;passwordNueva="";exito=editarId>0?"Datos del usuario actualizados.":"Usuario creado.";try{usuarios=(await AuthService.ObtenerTodosUsuariosAsync()).ToList();}catch{exito+=" Actualiza la lista para consultar los cambios.";}}catch(Exception ex){errorModal=ex is ArgumentException or UnauthorizedAccessException?ex.Message:"No se pudo guardar. Revisa si el nombre de usuario ya existe e inténtalo de nuevo.";}finally{usuarioEditar.Password="";ocupado=false;}}
 }

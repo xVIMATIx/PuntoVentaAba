@@ -145,3 +145,6 @@ yarn-error.log*
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+# Respaldos locales de base e imágenes
+Respaldos/

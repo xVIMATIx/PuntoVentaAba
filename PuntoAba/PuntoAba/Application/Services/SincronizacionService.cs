@@ -10,19 +10,22 @@ namespace PuntoAba.Services
         private readonly PuntoAbaDbContext _context;
         private readonly IProductoService _productoService;
         private readonly IVentaService _ventaService;
+        private readonly IAccesoOperacion _acceso;
 
         public SincronizacionService(
             PuntoAbaDbContext context,
             IProductoService productoService,
-            IVentaService ventaService)
+            IVentaService ventaService, IAccesoOperacion acceso)
         {
             _context = context;
             _productoService = productoService;
             _ventaService = ventaService;
+            _acceso = acceso;
         }
 
         public async Task<SincronizacionResponseDto> SincronizarDatosAsync(SincronizacionDto datos)
         {
+            await _acceso.ExigirAsync("Admin", "Supervisor");
             var response = new SincronizacionResponseDto
             {
                 FechaSincronizacion = DateTime.UtcNow
@@ -82,6 +85,7 @@ namespace PuntoAba.Services
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
+                _context.ChangeTracker.Clear();
                 response.Exitoso = false;
                 response.Mensaje = $"Error durante la sincronización: {ex.Message}";
             }
@@ -146,6 +150,11 @@ namespace PuntoAba.Services
                 })
                 .ToListAsync();
 
+            // Las ventas pendientes se incluyen aunque sean anteriores a la última sincronización.
+            var pendientes = await _context.Ventas.AsNoTracking().Where(v => !v.Sincronizado).Select(v => v.Id).ToListAsync();
+            var idsPendientes = pendientes.ToHashSet();
+            datos.Ventas = idsPendientes.Count == 0 ? new List<VentaDto>()
+                : (await _ventaService.ObtenerTodas()).Where(v => idsPendientes.Contains(v.Id)).ToList();
             return datos;
         }
 
@@ -168,6 +177,7 @@ namespace PuntoAba.Services
 
         private async Task SincronizarProductoAsync(ProductoDto dto)
         {
+            var actor = await _acceso.ExigirAsync("Admin", "Supervisor");
             var producto = await _context.Productos
                 .FirstOrDefaultAsync(p => p.Id == dto.Id || p.Codigo == dto.Codigo);
 
@@ -192,10 +202,13 @@ namespace PuntoAba.Services
                     UltimaSincronizacion = DateTime.UtcNow
                 };
                 _context.Productos.Add(producto);
+                ControlInventarioService.CantidadValida(producto, producto.Stock, true);
+                if (producto.Stock > 0) _context.MovimientosInventario.Add(new MovimientoInventario { Producto = producto, TipoMovimiento = "Entrada", Cantidad = producto.Stock, StockAnterior = 0, StockNuevo = producto.Stock, Motivo = "Apertura por sincronización", UsuarioId = actor.Id, CostoUnitario = producto.PrecioCompra });
             }
             else
             {
                 // Actualizar producto existente
+                if (dto.Stock != producto.Stock || dto.EsPorPeso != producto.EsPorPeso || !string.Equals(dto.UnidadMedida, producto.UnidadMedida, StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("La sincronización no puede sustituir existencias o unidades. Usa las operaciones de inventario para registrar sus cambios.");
                 producto.Nombre = dto.Nombre;
                 producto.Descripcion = dto.Descripcion;
                 producto.PrecioCompra = dto.PrecioCompra;
@@ -209,6 +222,7 @@ namespace PuntoAba.Services
                 producto.Activo = dto.Activo;
                 producto.FechaActualizacion = DateTime.UtcNow;
                 producto.UltimaSincronizacion = DateTime.UtcNow;
+                producto.VersionInventario++;
             }
         }
 
@@ -268,6 +282,9 @@ namespace PuntoAba.Services
                 Descuento = dto.Descuento,
                 Impuesto = dto.Impuesto,
                 Total = dto.Total,
+                Recibido = dto.Recibido,
+                Cambio = dto.Cambio,
+                Notas = dto.Notas,
                 MetodoPago = dto.MetodoPago,
                 EstadoVenta = dto.EstadoVenta,
                 Sincronizado = true,

@@ -12,6 +12,9 @@ namespace PuntoAba.DTOs
         public decimal Descuento { get; set; }
         public decimal Impuesto { get; set; }
         public decimal Total { get; set; }
+        public decimal? Recibido { get; set; }
+        public decimal? Cambio { get; set; }
+        public string? Notas { get; set; }
         public string MetodoPago { get; set; } = string.Empty;
         public string? EstadoVenta { get; set; }
         public List<DetalleVentaDto> Detalles { get; set; } = new();
@@ -19,10 +22,12 @@ namespace PuntoAba.DTOs
 
     public class CrearVentaDto
     {
+        public Guid OperacionId { get; set; } = Guid.NewGuid();
         public int? ClienteId { get; set; }
         public int UsuarioId { get; set; }
         public decimal Descuento { get; set; } = 0;
         public decimal Impuesto { get; set; } = 0;
+        public decimal? Recibido { get; set; }
         public string MetodoPago { get; set; } = "Efectivo";
         public string? Notas { get; set; }
         public List<CrearDetalleVentaDto> Detalles { get; set; } = new();
@@ -39,6 +44,7 @@ namespace PuntoAba.DTOs
         public decimal Descuento { get; set; }
         public decimal Subtotal { get; set; }
         public bool EsPorPeso { get; set; }
+        public string? UnidadMedida { get; set; }
     }
 
     public class CrearDetalleVentaDto

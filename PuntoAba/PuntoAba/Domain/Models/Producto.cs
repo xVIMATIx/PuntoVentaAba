@@ -33,6 +33,11 @@ namespace PuntoAba.Models
 
         [Column(TypeName = "decimal(18,3)")]
         public decimal StockMinimo { get; set; } = 0;
+        [Column(TypeName = "decimal(18,3)")]
+        public decimal StockObjetivo { get; set; }
+        [StringLength(200)]
+        public string? ProveedorHabitual { get; set; }
+        public long VersionInventario { get; set; }
 
         public bool EsPorPeso { get; set; } = false;
 

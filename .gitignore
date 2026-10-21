@@ -1,0 +1,23 @@
+# Secretos y configuración local
+.env*
+!.env.example
+**/secrets.json
+**/appsettings.*.local.json
+**/appsettings.Production.json
+*.pfx
+*.pem
+*.key
+*.user
+.vs/
+**/bin/
+**/obj/
+**/publish/
+**/node_modules/
+*.log
+*.db
+*.db-*
+*.sqlite*
+*.bak
+**/Respaldos/
+# Imágenes cargadas por usuarios; conservar las que ya existían en Git
+PuntoAba/PuntoAba/wwwroot/images/productos/*

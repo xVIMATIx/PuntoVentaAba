@@ -145,7 +145,7 @@ namespace PuntoAba.Services
             };
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(
-                _configuration["Jwt:Key"] ?? "PuntoAba_SecretKey_MuySegura_2026_Change_This_In_Production"));
+                _configuration["Jwt:Key"] ?? throw new InvalidOperationException("Configura Jwt__Key mediante una variable de entorno.")));
 
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 

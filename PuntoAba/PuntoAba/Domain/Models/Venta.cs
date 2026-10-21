@@ -7,6 +7,7 @@ namespace PuntoAba.Models
     {
         [Key]
         public int Id { get; set; }
+        public Guid? OperacionId { get; set; }
 
         [Required]
         [StringLength(50)]
@@ -32,6 +33,13 @@ namespace PuntoAba.Models
         [Required]
         [Column(TypeName = "decimal(18,2)")]
         public decimal Total { get; set; }
+
+        // Null distingue ventas anteriores que no registraron el efectivo.
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal? Recibido { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal? Cambio { get; set; }
 
         [Required]
         [StringLength(50)]

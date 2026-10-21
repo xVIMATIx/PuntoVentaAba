@@ -1,0 +1,42 @@
+﻿<div class="inv-page">
+<div class="page-header"><div><h2 class="page-title">Contar productos</h2><p class="inv-description">Cuenta la mercancía, guarda tu avance y revisa las diferencias antes de aplicarlas.</p></div></div>
+@if(actual == null) { @Avisos() }
+<div class="inv-summary inv-summary-compact"><div><span>Productos seleccionados</span><strong>@seleccion.Count</strong></div><div><span>Conteos pendientes</span><strong>@conteos.Count(c => c.Estado == "Pendiente")</strong></div><div><span>Conteos recientes</span><strong>@conteos.Count</strong></div></div>
+<details class="count-preparation" open="@(actual == null)"><summary>Preparar un nuevo conteo</summary>
+<div class="card"><div class="card-body"><fieldset disabled="@Bloqueado" class="inv-fieldset">
+    <form class="inv-add" @onsubmit="AgregarCodigo" @onsubmit:preventDefault="true"><div><label for="conteo-codigo">Escanear código</label><input id="conteo-codigo" data-touch-enter class="form-control" @bind="codigo" @bind:event="oninput" autocomplete="off" /></div><button type="submit" class="btn btn-outline-primary">Seleccionar código</button></form>
+    <div class="inv-add"><div><label for="conteo-producto">Producto</label><select id="conteo-producto" class="form-select" @bind="productoId"><option value="0">Selecciona...</option>@foreach(var p in productos) { <option value="@p.Id">@p.Codigo - @p.Nombre</option> }</select></div><button type="button" class="btn btn-outline-primary" @onclick="AgregarProducto">Agregar producto</button></div>
+    <div class="inv-add"><div><label for="conteo-categoria">Agregar una categoría</label><select id="conteo-categoria" class="form-select" @bind="categoria"><option value="">Todos los productos</option>@foreach(var cat in productos.Select(p=>p.CategoriaNombre ?? "").Distinct().OrderBy(x=>x)) { <option>@cat</option> }</select></div><button type="button" class="btn btn-outline-primary" @onclick="AgregarCategoria">Agregar selección</button></div>
+    <div class="inv-selection-list">@foreach(var p in productos.Where(p=>seleccion.Contains(p.Id))) { <div class="inv-selection-item"><div><strong>@p.Nombre</strong><small>@p.Codigo</small></div><button type="button" class="btn btn-outline-secondary" aria-label="@($"Quitar {p.Nombre} del conteo")" @onclick="()=>seleccion.Remove(p.Id)">Quitar</button></div> }@if(seleccion.Count == 0) { <p class="inv-empty">Agrega productos por código, por nombre o por categoría.</p> }</div>
+    <button type="button" class="btn btn-primary" disabled="@(seleccion.Count==0)" @onclick="Iniciar">Iniciar conteo de @seleccion.Count productos</button>
+</fieldset></div></div></details>
+@if(actual != null && contexto != null)
+{
+    <section class="card count-detail" tabindex="-1" @ref="panel" aria-label="@($"Detalle del conteo {actual.Folio}")">
+    <div class="card-header"><strong>@actual.Folio</strong><span class="badge bg-info">@actual.Estado</span></div><div class="card-body">
+    @Avisos()
+    <p>Responsable: @actual.Responsable. @if(actual.AutorizadoPor != null) { <span>Autorizó: @actual.AutorizadoPor.</span> }</p>
+    @if(actual.Estado != "Pendiente") { <div class="count-notice">Este conteo ya fue confirmado y sus diferencias ya se aplicaron. Es de solo consulta. Para contar otra vez, prepara un nuevo conteo.</div> }
+    else {
+        <div class="count-progress"><strong>@actual.Detalles.Count(d=>d.Contada.HasValue) de @actual.Detalles.Count productos contados</strong><span>@(contexto.IsModified() ? "Cambios sin guardar" : "Sin cambios pendientes de guardar")</span></div>
+        <p class="inv-description">Guardar borrador conserva tu avance sin cambiar existencias. Solo Autorizar y aplicar diferencias ajusta el inventario.</p>
+    }
+    <EditForm EditContext="contexto" @key="contexto" OnSubmit="Ignorar"><DataAnnotationsValidator /><ValidationSummary /><fieldset class="inv-fieldset" disabled="@(Bloqueado || actual.Estado != "Pendiente")">
+    <div class="table-responsive"><table class="table inv-table"><thead><tr><th>Producto</th><th>Sistema al iniciar</th><th>Contado</th><th>Diferencia</th><th>Motivo de la diferencia</th></tr></thead><tbody>@foreach(var d in actual.Detalles)
+    { <tr @key="d.ProductoId"><td>@d.Nombre<small>@d.Codigo</small></td><td>@d.Sistema.ToString("0.###")</td><td><input class="form-control" type="text" inputmode="@(d.EsPorPeso ? "decimal" : "numeric")" autocomplete="off" aria-label="@($"Contado de {d.Nombre}")" aria-invalid="@erroresCantidad.ContainsKey(d.ProductoId)" value="@cantidades.GetValueOrDefault(d.ProductoId)" @oninput="e=>CambiarCantidad(d,e)" placeholder="Sin contar" />@if(erroresCantidad.TryGetValue(d.ProductoId,out var aviso)) { <small class="text-danger" role="alert">@aviso</small> }</td><td>@(erroresCantidad.ContainsKey(d.ProductoId) ? "Revisar cantidad" : d.Diferencia?.ToString("+0.###;-0.###;0") ?? "Sin contar")</td><td><InputText class="form-control" aria-label="@($"Motivo de {d.Nombre}")" @bind-Value="d.Motivo" maxlength="400" /></td></tr> }</tbody></table></div>
+    @if(actual.Estado == "Pendiente") {
+    <div class="count-actions">
+        <div><button class="btn btn-outline-primary" type="button" @onclick="Guardar">@(ocupado ? "Procesando…" : "Guardar borrador")</button><small>Guarda cantidades y motivos para continuar después.</small></div>
+        <div><button class="btn btn-outline-secondary" type="button" @onclick="()=>mostrarReinicio=true">Actualizar base y volver a contar</button><small>Toma las existencias actuales y borra la captura de este conteo.</small></div>
+        @if(Sesion.UsuarioActual?.Rol is "Admin" or "Supervisor") { <div><button type="button" class="btn btn-success" @onclick="Confirmar">Autorizar y aplicar diferencias</button><small>Finaliza el conteo y cambia las existencias.</small></div> }
+    </div> }
+    </fieldset></EditForm></div></section>
+}
+<div class="card"><div class="card-header"><span>Conteos recientes</span><small>Últimos 50 registros</small></div><div class="card-body"><button type="button" class="btn btn-outline-primary btn-sm" disabled="@Bloqueado" @onclick="ActualizarLista">Actualizar lista</button><p class="inv-description">Abrir muestra el detalle y permite continuar si el conteo está pendiente.</p><div class="table-responsive"><table class="table"><thead><tr><th>Folio</th><th>Inicio</th><th>Responsable</th><th>Estado</th><th></th></tr></thead><tbody>@foreach(var c in conteos) { <tr class="@(actual?.Id==c.Id ? "count-current" : "")"><td>@c.Folio</td><td>@c.Fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td><td>@c.Responsable</td><td>@c.Estado</td><td><button type="button" class="btn btn-outline-primary btn-sm" disabled="@Bloqueado" aria-label="@($"Abrir conteo {c.Folio}")" @onclick="()=>Abrir(c.Id)">Abrir</button></td></tr> }@if(conteos.Count == 0) { <tr><td colspan="5" class="inv-empty">Aún no hay conteos registrados.</td></tr> }</tbody></table></div></div></div>
+@if(mostrarReinicio && actual != null) {
+    <div class="count-overlay" @onkeydown="TeclaReinicio"><section class="count-dialog" role="dialog" aria-modal="true" aria-labelledby="count-reset-title" tabindex="-1" @ref="dialogo">
+    <h3 id="count-reset-title">¿Actualizar la base de @actual.Folio?</h3><p>Se usarán las existencias actuales del sistema y se borrarán las cantidades contadas y sus motivos, incluso los guardados en el borrador. Tendrás que contar los productos otra vez.</p><p>Esta acción no cambia las existencias del inventario.</p>
+    <div class="inv-actions"><button type="button" class="btn btn-outline-secondary" disabled="@ocupado" @onclick="CancelarReinicio">Cancelar</button><button type="button" class="btn btn-primary" disabled="@ocupado" @onclick="Reiniciar">@(ocupado ? "Actualizando…" : "Actualizar y borrar captura")</button></div>
+    </section></div>
+}
+</div>

@@ -1,29 +1,21 @@
-@page "/ventas"
+﻿@page "/ventas"
 @inject IVentaService VentaService
 @inject NavigationManager Navigation
 
 <PageTitle>Ventas - PuntoAba</PageTitle>
 
 <div class="page-header">
-    <h1 class="page-title">💰 Historial de Ventas</h1>
-    <a href="/ventas/nuevo" class="btn btn-primary">➕ Nueva Venta</a>
+    <div><h2 class="page-title">Ventas realizadas</h2><p>Busca una operación y consulta su recibo completo.</p></div>
+    <a href="ventas/nuevo" class="btn btn-primary">Nueva venta</a>
 </div>
 
-<div class="row mb-3">
-    <div class="col-md-4">
-        <label class="form-label">Fecha Inicio</label>
-        <input type="date" class="form-control" @bind="fechaInicio" @bind:after="CargarVentas" />
-    </div>
-    <div class="col-md-4">
-        <label class="form-label">Fecha Fin</label>
-        <input type="date" class="form-control" @bind="fechaFin" @bind:after="CargarVentas" />
-    </div>
-    <div class="col-md-4">
-        <label class="form-label">Buscar</label>
-        <input type="text" class="form-control" placeholder="Número de venta..." @bind="filtro" @bind:event="oninput" @onkeyup="Filtrar" />
-    </div>
-</div>
-
+@if (error != "") { <div class="alert alert-danger" role="alert">@error</div> }
+<form class="module-toolbar" @onsubmit="CargarVentas" @onsubmit:preventDefault="true">
+<div><label for="history-from">Desde</label><input id="history-from" type="date" class="form-control" disabled="@loading" @bind="fechaInicio" /></div>
+<div><label for="history-to">Hasta</label><input id="history-to" type="date" class="form-control" disabled="@loading" @bind="fechaFin" /></div>
+<div><label for="history-search">Buscar venta</label><input id="history-search" type="search" class="form-control" placeholder="Folio o cliente" @bind="filtro" @bind:event="oninput" @bind:after="Filtrar" /></div>
+<button type="submit" class="btn btn-primary" disabled="@loading">Consultar</button>
+</form>
 @if (loading)
 {
     <div class="loading-spinner">
@@ -56,10 +48,11 @@ else
                                 <td class="text-end"><strong>$@venta.Total.ToString("N2")</strong></td>
                                 <td><span class="badge bg-info">@venta.MetodoPago</span></td>
                                 <td class="text-center">
-                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => VerDetalle(venta)">👁️ Ver</button>
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => VerDetalle(venta)">Ver recibo</button>
                                 </td>
                             </tr>
                         }
+                    @if (ventasFiltradas.Count == 0) { <tr><td colspan="6" class="module-empty">No hay ventas con estos filtros.</td></tr> }
                     </tbody>
                 </table>
             </div>
@@ -75,54 +68,56 @@ else
 
 @if (ventaDetalle != null)
 {
-    <div class="modal show d-block" tabindex="-1">
+    <div class="modal show d-block receipt-modal" role="dialog" aria-modal="true" aria-labelledby="sale-detail-title" tabindex="-1" @ref="detalleModal" @onkeydown="TeclaDetalle">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Detalle de Venta: @ventaDetalle.NumeroVenta</h5>
-                    <button type="button" class="btn-close" @onclick="() => ventaDetalle = null"></button>
+                    <h2 class="modal-title" id="sale-detail-title">Detalle de venta: @ventaDetalle.NumeroVenta</h2>
+                    <button type="button" class="btn-close" aria-label="Cerrar detalle de venta" @onclick="CerrarDetalle"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <p><strong>Fecha:</strong> @ventaDetalle.FechaVenta.ToString("dd/MM/yyyy HH:mm")</p>
-                            <p><strong>Cliente:</strong> @ventaDetalle.ClienteNombre</p>
-                        </div>
-                        <div class="col-md-6">
-                            <p><strong>Método de Pago:</strong> @ventaDetalle.MetodoPago</p>
-                            <p><strong>Vendedor:</strong> @ventaDetalle.UsuarioNombre</p>
-                        </div>
+                    <div class="receipt-brand">Abarrotes Agustín</div>
+                    <dl class="receipt-info">
+                        <div><dt>Folio</dt><dd>@ventaDetalle.NumeroVenta</dd></div>
+                        <div><dt>Fecha y hora</dt><dd>@ventaDetalle.FechaVenta.ToString("dd/MM/yyyy HH:mm:ss")</dd></div>
+                        <div><dt>Cliente</dt><dd>@ventaDetalle.ClienteNombre</dd></div>
+                        <div><dt>Vendedor</dt><dd>@(ventaDetalle.UsuarioNombre ?? "No registrado")</dd></div>
+                        <div><dt>Método de pago</dt><dd>@ventaDetalle.MetodoPago</dd></div>
+                        <div><dt>Estado</dt><dd>@(ventaDetalle.EstadoVenta ?? "No registrado")</dd></div>
+                    </dl>
+                    <div class="table-responsive">
+                        <table class="table table-sm receipt-lines" aria-label="Productos de la venta">
+                            <thead><tr><th>Producto / código</th><th class="text-end">Cantidad</th><th class="text-end">Precio unitario</th>
+                                @if (ventaDetalle.Detalles.Any(d => d.Descuento != 0)) { <th class="text-end">Descuento</th> }
+                                <th class="text-end">Importe</th></tr></thead>
+                            <tbody>
+                                @foreach (var detalle in ventaDetalle.Detalles)
+                                {
+                                    <tr><td><strong>@detalle.ProductoNombre</strong><small>@detalle.ProductoCodigo</small></td>
+                                        <td class="text-end">@(detalle.EsPorPeso ? detalle.Cantidad.ToString("N3") : detalle.Cantidad.ToString("N0")) <small>@(detalle.UnidadMedida ?? (detalle.EsPorPeso ? "" : "pza"))</small></td>
+                                        <td class="text-end">$@detalle.PrecioUnitario.ToString("N2")</td>
+                                        @if (ventaDetalle.Detalles.Any(d => d.Descuento != 0)) { <td class="text-end">-$@detalle.Descuento.ToString("N2")</td> }
+                                        <td class="text-end">$@detalle.Subtotal.ToString("N2")</td></tr>
+                                }
+                            </tbody>
+                        </table>
                     </div>
-
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>Producto</th>
-                                <th class="text-center">Cantidad</th>
-                                <th class="text-end">Precio</th>
-                                <th class="text-end">Subtotal</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var detalle in ventaDetalle.Detalles)
-                            {
-                                <tr>
-                                    <td>@detalle.ProductoNombre</td>
-                                    <td class="text-center">@(detalle.EsPorPeso ? detalle.Cantidad.ToString("N3") : detalle.Cantidad.ToString("N0"))</td>
-                                    <td class="text-end">$@detalle.PrecioUnitario.ToString("N2")</td>
-                                    <td class="text-end">$@detalle.Subtotal.ToString("N2")</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-
-                    <div class="text-end">
-                        <p><strong>Subtotal:</strong> $@ventaDetalle.Subtotal.ToString("N2")</p>
-                        <p><strong>Descuento:</strong> -$@ventaDetalle.Descuento.ToString("N2")</p>
-                        <p><strong>Impuesto:</strong> $@ventaDetalle.Impuesto.ToString("N2")</p>
-                        <h4><strong>TOTAL:</strong> $@ventaDetalle.Total.ToString("N2")</h4>
-                    </div>
+                    <dl class="receipt-totals">
+                        <div><dt>Subtotal</dt><dd>$@ventaDetalle.Subtotal.ToString("N2")</dd></div>
+                        <div><dt>Descuento</dt><dd>-$@ventaDetalle.Descuento.ToString("N2")</dd></div>
+                        <div><dt>Impuesto</dt><dd>$@ventaDetalle.Impuesto.ToString("N2")</dd></div>
+                        <div class="receipt-total"><dt>Total</dt><dd>$@ventaDetalle.Total.ToString("N2")</dd></div>
+                        @if (string.Equals(ventaDetalle.MetodoPago, "Efectivo", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <div><dt>Recibido</dt><dd>@(ventaDetalle.Recibido.HasValue ? $"${ventaDetalle.Recibido.Value:N2}" : "No registrado")</dd></div>
+                            <div class="receipt-change"><dt>Cambio</dt><dd>@(ventaDetalle.Cambio.HasValue ? $"${ventaDetalle.Cambio.Value:N2}" : "No registrado")</dd></div>
+                        }
+                    </dl>
+                    @if (string.Equals(ventaDetalle.MetodoPago, "Efectivo", StringComparison.OrdinalIgnoreCase) && (!ventaDetalle.Recibido.HasValue || !ventaDetalle.Cambio.HasValue))
+                    { <p class="receipt-legacy">El efectivo recibido y el cambio no quedaron registrados en esta venta.</p> }
+                    @if (!string.IsNullOrWhiteSpace(ventaDetalle.Notas)) { <div class="receipt-notes"><strong>Notas</strong><p>@ventaDetalle.Notas</p></div> }
                 </div>
+                <div class="modal-footer"><button type="button" class="btn btn-secondary" @onclick="CerrarDetalle">Cerrar</button></div>
             </div>
         </div>
     </div>
@@ -130,10 +125,22 @@ else
 }
 
 @code {
+    [SupplyParameterFromQuery(Name = "ventaId")] public int? VentaId { get; set; }
+    protected override async Task OnParametersSetAsync() { if (VentaId.HasValue) { try { ventaDetalle = await VentaService.ObtenerPorIdAsync(VentaId.Value); enfocarDetalle = ventaDetalle != null; } catch { error = "No se pudo consultar el recibo."; } } }
     private List<VentaDto> ventas = new();
     private List<VentaDto> ventasFiltradas = new();
     private VentaDto? ventaDetalle;
-    private bool loading = true;
+    private ElementReference detalleModal;
+    private bool enfocarDetalle;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (enfocarDetalle && ventaDetalle != null) { enfocarDetalle = false; await detalleModal.FocusAsync(); }
+    }
+    private void CerrarDetalle() { ventaDetalle = null; enfocarDetalle = false; }
+    private void TeclaDetalle(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e) { if (e.Key == "Escape") CerrarDetalle(); }
+
+    private bool loading;
+    private string error = "";
     private DateTime fechaInicio = DateTime.Today.AddDays(-7);
     private DateTime fechaFin = DateTime.Today;
     private string filtro = "";
@@ -145,16 +152,13 @@ else
 
     private async Task CargarVentas()
     {
+        if (loading) return;
+        error = "";
+        if (fechaInicio.Date > fechaFin.Date) { error = "La fecha inicial debe ser anterior o igual a la final."; return; }
         loading = true;
-        try
-        {
-            ventas = (await VentaService.ObtenerTodas(fechaInicio, fechaFin)).ToList();
-            ventasFiltradas = ventas;
-        }
-        finally
-        {
-            loading = false;
-        }
+        try { ventas = (await VentaService.ObtenerTodas(fechaInicio, fechaFin)).ToList(); Filtrar(); }
+        catch { error = "No se pudieron consultar las ventas. Inténtalo de nuevo."; }
+        finally { loading = false; }
     }
 
     private void Filtrar()
@@ -174,6 +178,6 @@ else
 
     private async Task VerDetalle(VentaDto venta)
     {
-        ventaDetalle = await VentaService.ObtenerPorIdAsync(venta.Id);
+        try { ventaDetalle = await VentaService.ObtenerPorIdAsync(venta.Id); enfocarDetalle = ventaDetalle != null; if (ventaDetalle == null) error = "La venta ya no está disponible."; } catch { error = "No se pudo consultar el recibo."; }
     }
 }
